@@ -11,16 +11,16 @@ With Syntax Symphony, you can enhance the quality and reliability of your softwa
 
 ## Getting Started
 
-## Prerequisites
+### Prerequisites
 - Python 3.10 or higher
 
-## Installation
+### Installation
 
-### From PyPI
+#### From PyPI
 ```bash
 pip install syntax-symphony
 ```
-### From Source
+#### From Source
 1. Clone the repository:
 ```bash
 git clone
@@ -112,10 +112,6 @@ for i in range(10):
     test_case = fuzzer.fuzz()
     print(test_case)
 ```
-
-
-
-
 
 ## Contributing
 We welcome contributions from the community. If you have ideas for improvements, new features, or bug fixes, please submit a pull request or open an issue on our GitHub repository.
