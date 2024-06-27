@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "syntax_symphony"
+version = "0.0.1"
+description = "Efficient grammar-based fuzzer."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Stanimir Iglev" },
+    { name = "Stanimir Iglev", email = "iglev.stanimir@gmail.com" },
+]
+maintainers = [{ name = "Stanimir Iglev", email = "iglev.stanimir@gmail.com" }]
+license = { file = "LICENSE" }
+keywords = ["fuzzer", "fuzzing", "testing", "grammar", "grammars"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 2 - Pre-Alpha",
+    "Topic :: Software Development :: Testing",
+    "Intended Audience :: Developers",
+]
+dependencies = ["schema >= 0.7.7"]
+
+
+[project.urls]
+Homepage = "https://example.com"
+Documentation = "https://readthedocs.org"
+Repository = "https://github.com/me/spam.git"
+Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+[project.scripts]
+ssfuzz = "syntax_symphony.cli:ssfuzz"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
