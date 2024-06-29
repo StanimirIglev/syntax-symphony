@@ -150,21 +150,14 @@ class Grammar(UserDict[str, list[list[str]]]):
         used_nonterminals = {grammar.start_symbol}
 
         for nonterminal, expansions in grammar.items():
-            if not isinstance(expansions, list) or not expansions:
-                print(
-                    f"{nonterminal}: invalid expansion list {repr(expansions)}"
-                )
+            if not expansions:
+                print(f"{nonterminal} has an empty expansion list")
                 return False
 
             for expansion in expansions:
-                if not isinstance(expansion, list) or not all(
-                    isinstance(symbol, str) for symbol in expansion
-                ):
-                    print(
-                        f"{nonterminal}: invalid expansion {repr(expansion)}"
-                    )
+                if not expansion:
+                    print(f"{nonterminal} contains an empty expansion")
                     return False
-
                 used_nonterminals.update(
                     Grammar.extract_nonterminals(expansion)
                 )
@@ -174,20 +167,17 @@ class Grammar(UserDict[str, list[list[str]]]):
 
         if unused_nonterminals:
             for unused_nonterminal in unused_nonterminals:
-                print(f"{unused_nonterminal}: defined, but not used.")
+                print(f"{unused_nonterminal} is defined, but unused.")
 
         if undefined_nonterminals:
             for undefined_nonterminal in undefined_nonterminals:
-                print(f"{undefined_nonterminal}: used, but not defined.")
+                print(f"{undefined_nonterminal} is used, but never defined.")
 
         unreachable = Grammar.unreachable_nonterminals(grammar)
-        if grammar.start_symbol in grammar:
-            unreachable -= Grammar.reachable_nonterminals(grammar)
-
         if unreachable:
             for unreachable_nonterminal in unreachable:
                 print(
-                    f"{unreachable_nonterminal}: unreachable from {grammar.start_symbol}."
+                    f"{unreachable_nonterminal} is unreachable from {grammar.start_symbol}."
                 )
 
         return used_nonterminals == defined_nonterminals and not unreachable
