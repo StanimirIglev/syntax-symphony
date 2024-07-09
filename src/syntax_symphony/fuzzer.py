@@ -1,4 +1,5 @@
 import copy
+from itertools import chain
 import random
 from collections import deque
 from typing import Callable, Generator, Iterable
@@ -9,7 +10,7 @@ from .derivation_tree import DT
 class SyntaxSymphony:
     """An efficient grammar-based fuzzer.
 
-    The Kalashnikov fuzzer aims to cover all elements of the grammar
+    The SyntaxSymphony fuzzer aims to cover all elements of the grammar
     utilizing a k-path coverage strategy. The size of the k-paths can be
     adjusted by the user.
     Additionally, the fuzzer provides a mechanism to control the size
@@ -313,6 +314,16 @@ class SyntaxSymphony:
 
         assert item.children is None
         return expand_tree(DT(item.symbol, None), path, 0)
+
+    def remaining_k_paths(self) -> int:
+        """Computes the number of remaining uncovered k-paths.
+
+        Returns:
+            int: The number of remaining uncovered k-paths.
+        """
+        return len(
+            list(chain.from_iterable(list(self.uncovered_k_paths.values())))
+        )
 
     def tree_fuzz(self, tree: DT) -> DT:
         """Fuzzes a derivation tree by expanding the unexpanded nonterminals.

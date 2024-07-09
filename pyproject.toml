@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syntax_symphony"
-version = "0.0.2"
+version = "0.1.0"
 description = "Efficient grammar-based fuzzer."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,8 +18,13 @@ keywords = ["fuzzer", "fuzzing", "testing", "grammar", "grammars"]
 classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3.10",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Testing",
+    "Topic :: Security",
+    "Topic :: Utilities",
     "Intended Audience :: Developers",
 ]
 dependencies = ["schema >= 0.7.7"]
