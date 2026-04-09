@@ -2,9 +2,9 @@ from __future__ import annotations
 import logging
 import re
 from collections import UserDict
+from schema import Schema  # type: ignore
 
 _logger = logging.getLogger(__name__)
-from schema import Schema  # type: ignore
 
 # TODO: Consider making the grammar immutable,
 # e.g., https://pypi.org/project/immutabledict/ | https://pypi.org/project/frozendict/
@@ -29,9 +29,7 @@ class Grammar(UserDict[str, list[list[str]]]):
 
     def __init__(
         self,
-        productions: (
-            dict[str, list[list[str]]] | dict[str, list[str]] | None
-        ) = None,
+        productions: dict[str, list[list[str]]] | dict[str, list[str]] | None = None,
         start_symbol: str = "<start>",
         **kwargs,  # type: ignore
     ):
@@ -74,9 +72,7 @@ class Grammar(UserDict[str, list[list[str]]]):
         Returns:
             dict[str, list[str]]: A dictionary representing the grammar.
         """
-        return {
-            k: ["".join(expansion) for expansion in v] for k, v in self.items()
-        }
+        return {k: ["".join(expansion) for expansion in v] for k, v in self.items()}
 
     @classmethod
     def from_dict(cls, grammar: dict[str, list[str]]) -> Grammar:
@@ -159,28 +155,20 @@ class Grammar(UserDict[str, list[list[str]]]):
 
             for expansion in expansions:
                 if not expansion:
-                    _logger.warning(
-                        "%s contains an empty expansion", nonterminal
-                    )
+                    _logger.warning("%s contains an empty expansion", nonterminal)
                     return False
-                used_nonterminals.update(
-                    Grammar.extract_nonterminals(expansion)
-                )
+                used_nonterminals.update(Grammar.extract_nonterminals(expansion))
 
         unused_nonterminals = defined_nonterminals - used_nonterminals
         undefined_nonterminals = used_nonterminals - defined_nonterminals
 
         if unused_nonterminals:
             for unused_nonterminal in unused_nonterminals:
-                _logger.warning(
-                    "%s is defined, but unused.", unused_nonterminal
-                )
+                _logger.warning("%s is defined, but unused.", unused_nonterminal)
 
         if undefined_nonterminals:
             for undefined_nonterminal in undefined_nonterminals:
-                _logger.warning(
-                    "%s is used, but never defined.", undefined_nonterminal
-                )
+                _logger.warning("%s is used, but never defined.", undefined_nonterminal)
 
         unreachable = Grammar.unreachable_nonterminals(grammar)
         if unreachable:
@@ -210,9 +198,7 @@ def normalize(grammar: dict[str, list[str]]) -> dict[str, list[list[str]]]:
     def split(expansion: str) -> list[str]:
         if expansion == "":
             return [""]
-        return [
-            token for token in re.split(RE_NONTERMINAL, expansion) if token
-        ]
+        return [token for token in re.split(RE_NONTERMINAL, expansion) if token]
 
     return {
         k: [split(expression) for expression in alternatives]
