@@ -1,10 +1,14 @@
 import copy
-from itertools import chain
+import logging
 import random
 from collections import deque
+from itertools import chain
 from typing import Callable, Generator, Iterable
-from .grammar import Grammar, is_nonterminal
+
 from .derivation_tree import DT
+from .grammar import Grammar, is_nonterminal
+
+_logger = logging.getLogger(__name__)
 
 
 class SyntaxSymphony:
@@ -39,13 +43,13 @@ class SyntaxSymphony:
         self._min_depth = min_depth
         self._max_depth = max_depth
         self.symbol_costs: dict[str, int | float] = {}
-        print("Computing costs...")
+        _logger.info("Computing costs...")
         self.costs = self.compute_cost()
-        print("Generating minimizing grammar...")
+        _logger.info("Generating minimizing grammar...")
         self.minimizing_grammar = self.compute_biased_grammar(min)
-        print("Generating maximizing grammar...")
+        _logger.info("Generating maximizing grammar...")
         self.maximizing_grammar = self.compute_biased_grammar(max)
-        print("Computing k-paths...")
+        _logger.info("Computing k-paths...")
         self.k_paths = self.compute_k_paths(kcov)
         self.uncovered_k_paths = copy.deepcopy(self.k_paths)
         # NOTE: Shuffle the paths, so that we only need to pop from the list.
@@ -212,10 +216,9 @@ class SyntaxSymphony:
         if max_k < 1:
             raise ValueError("max_k must be at least 1.")
         if max_k > 5:
-            print(
-                "Warning: max_k > 5 may take a long time"
-                " and a lot of memory to compute"
-                " if the grammar is large."
+            _logger.warning(
+                "max_k > 5 may take a long time and a lot of memory to compute "
+                "if the grammar is large."
             )
         kpaths = self._compute_k_paths(1)
         for k in range(2, max_k + 1):

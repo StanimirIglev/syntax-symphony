@@ -1,6 +1,9 @@
 from __future__ import annotations
+import logging
 import re
 from collections import UserDict
+
+_logger = logging.getLogger(__name__)
 from schema import Schema  # type: ignore
 
 # TODO: Consider making the grammar immutable,
@@ -33,7 +36,7 @@ class Grammar(UserDict[str, list[list[str]]]):
         **kwargs,  # type: ignore
     ):
         if dict_grammar_schema.is_valid(productions):
-            print("Normalizing grammar...")
+            _logger.debug("Normalizing grammar...")
             productions = normalize(productions)  # type: ignore
 
         grammar_schema.validate(productions)
@@ -151,12 +154,14 @@ class Grammar(UserDict[str, list[list[str]]]):
 
         for nonterminal, expansions in grammar.items():
             if not expansions:
-                print(f"{nonterminal} has an empty expansion list")
+                _logger.warning("%s has an empty expansion list", nonterminal)
                 return False
 
             for expansion in expansions:
                 if not expansion:
-                    print(f"{nonterminal} contains an empty expansion")
+                    _logger.warning(
+                        "%s contains an empty expansion", nonterminal
+                    )
                     return False
                 used_nonterminals.update(
                     Grammar.extract_nonterminals(expansion)
@@ -167,17 +172,23 @@ class Grammar(UserDict[str, list[list[str]]]):
 
         if unused_nonterminals:
             for unused_nonterminal in unused_nonterminals:
-                print(f"{unused_nonterminal} is defined, but unused.")
+                _logger.warning(
+                    "%s is defined, but unused.", unused_nonterminal
+                )
 
         if undefined_nonterminals:
             for undefined_nonterminal in undefined_nonterminals:
-                print(f"{undefined_nonterminal} is used, but never defined.")
+                _logger.warning(
+                    "%s is used, but never defined.", undefined_nonterminal
+                )
 
         unreachable = Grammar.unreachable_nonterminals(grammar)
         if unreachable:
             for unreachable_nonterminal in unreachable:
-                print(
-                    f"{unreachable_nonterminal} is unreachable from {grammar.start_symbol}."
+                _logger.warning(
+                    "%s is unreachable from %s.",
+                    unreachable_nonterminal,
+                    grammar.start_symbol,
                 )
 
         return used_nonterminals == defined_nonterminals and not unreachable

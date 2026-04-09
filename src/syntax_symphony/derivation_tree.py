@@ -1,8 +1,12 @@
 from __future__ import annotations
+import logging
 from typing import Any, Union, TYPE_CHECKING
+
 from itertools import chain
 from collections import deque
 from collections.abc import Iterator
+
+_logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .grammar import Grammar
@@ -77,12 +81,12 @@ class DT:
         """
         if self.children == []:
             if self.symbol in grammar:
-                print(f"Nonterminal {self.symbol} has no children!")
+                _logger.warning("Nonterminal %s has no children!", self.symbol)
                 return False
             return True
 
         if self.symbol not in grammar:
-            print(f"Symbol {self.symbol} not in grammar!")
+            _logger.warning("Symbol %s not in grammar!", self.symbol)
             return False
 
         if self.children is None:
@@ -95,7 +99,7 @@ class DT:
                 valid = True
                 break
         if not valid:
-            print(f"Invalid expansion: {children} for {self.symbol}")
+            _logger.warning("Invalid expansion: %s for %s", children, self.symbol)
             return False
 
         return all(child.is_valid(grammar) for child in self.children)
