@@ -1,11 +1,16 @@
 import argparse
 import hashlib
+import json
 import os
+import sys
+
+from schema import SchemaError  # type: ignore
+
 from .fuzzer import SyntaxSymphony
-from .grammar import Grammar
+from .grammar import Grammar, load_grammar_from_file
 
 
-def ssfuzz():
+def ssfuzz() -> None:
     parser = argparse.ArgumentParser(description="Syntax Symphony Fuzzer")
     parser.add_argument(
         "-g",
@@ -83,10 +88,33 @@ def ssfuzz():
 
     args = parser.parse_args()
 
-    with open(args.grammar, "r") as file:
-        grammar_dict = eval(file.read())
-
-    grammar = Grammar(grammar_dict, f"<{args.start_symbol}>")
+    try:
+        grammar_dict = load_grammar_from_file(args.grammar)
+        grammar = Grammar(grammar_dict, f"<{args.start_symbol}>")
+    except FileNotFoundError:
+        print(f"Error: Grammar file not found: {args.grammar}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(
+            f"Error: Invalid JSON in grammar file '{args.grammar}': {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except SchemaError as exc:
+        print(
+            f"Error: Invalid grammar in '{args.grammar}': {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except TypeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except AssertionError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     fuzzer = SyntaxSymphony(grammar, args.kcov, args.min_depth, args.max_depth)
 

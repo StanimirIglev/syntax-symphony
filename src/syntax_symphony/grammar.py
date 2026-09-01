@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import logging
 import re
 from collections import UserDict
@@ -40,13 +41,13 @@ class Grammar(UserDict[str, list[list[str]]]):
         grammar_schema.validate(productions)
 
         super().__init__(productions, **kwargs)  # type: ignore
-        assert (
-            start_symbol in self
-        ), f"Start symbol '{start_symbol}' not found in grammar."
+        assert start_symbol in self, (
+            f"Start symbol '{start_symbol}' not found in grammar."
+        )
         self._start_symbol = start_symbol
-        assert (
-            len(self[start_symbol]) == 1
-        ), "Start symbol must have exactly one expansion alternative."
+        assert len(self[start_symbol]) == 1, (
+            "Start symbol must have exactly one expansion alternative."
+        )
 
     @property
     def start_symbol(self) -> str:
@@ -204,3 +205,31 @@ def normalize(grammar: dict[str, list[str]]) -> dict[str, list[list[str]]]:
         k: [split(expression) for expression in alternatives]
         for k, alternatives in grammar.items()
     }
+
+
+def load_grammar_from_file(
+    path: str,
+) -> dict[str, list[str]] | dict[str, list[list[str]]]:
+    """Load a grammar dictionary from a JSON file.
+
+    Args:
+        path: Path to a JSON grammar file.
+
+    Returns:
+        A grammar dictionary suitable for passing to ``Grammar``.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        json.JSONDecodeError: If the file contents are not valid JSON.
+        TypeError: If the parsed JSON value is not an object.
+    """
+    with open(path, encoding="utf-8") as file:
+        grammar_dict = json.loads(file.read())
+
+    if not isinstance(grammar_dict, dict):
+        raise TypeError(
+            f"Grammar file '{path}' must contain a JSON object, "
+            f"got {type(grammar_dict).__name__}."
+        )
+
+    return grammar_dict
