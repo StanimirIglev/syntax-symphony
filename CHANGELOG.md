@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-09-02
+
+### Added
+
+- `scripts/extract_release_notes.py` to extract Keep a Changelog sections for GitHub Releases; unit tests in `tests/test_release_notes.py`.
+
+### Changed
+
+- Publish workflow populates GitHub Release notes from `CHANGELOG.md` via `--notes-file` instead of empty `--notes`.
+
 ## [0.4.2] - 2026-09-02
 
 ### Added

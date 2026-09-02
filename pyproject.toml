@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syntax_symphony"
-version = "0.4.2"
+version = "0.4.3"
 description = "Efficient grammar-based fuzzer."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -45,7 +45,7 @@ ssfuzz = "syntax_symphony.cli:ssfuzz"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 testpaths = ["tests"]
 addopts = "--cov=syntax_symphony --cov-report=term-missing:skip-covered"
 
@@ -73,6 +73,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PT", "T20", "RET", "ARG"]
 
 [tool.ruff.lint.per-file-ignores]
 "src/syntax_symphony/cli.py" = ["T20"]
+"scripts/*.py" = ["T20"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["syntax_symphony"]
