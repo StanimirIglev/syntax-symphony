@@ -34,7 +34,7 @@ cd syntax-symphony
 uv sync
 ```
 
-This creates a `.venv` virtual environment and installs the package in editable mode along with dev tools (pytest, pytest-cov, ruff, mypy, build, twine).
+This creates a `.venv` virtual environment and installs the package in editable mode along with dev tools (pytest, pytest-cov, ruff, mypy, pre-commit, build, twine).
 
 3. Run the CLI via uv:
 ```bash
@@ -57,12 +57,16 @@ Artifacts are written to the `dist/` directory.
 
 ### Development
 
+Install git hooks (lint/format/typecheck on commit; tests on push):
+
+```bash
+uv run pre-commit install
+```
+
 Run the quality checks locally (same as CI):
 
 ```bash
-uv run ruff check src tests
-uv run ruff format --check src tests
-uv run mypy src
+uv run pre-commit run --all-files
 uv run pytest
 ```
 

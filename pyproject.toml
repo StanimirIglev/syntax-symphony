@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syntax_symphony"
-version = "0.4.1"
+version = "0.4.2"
 description = "Efficient grammar-based fuzzer."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,7 +27,7 @@ classifiers = [
 dependencies = ["schema >= 0.7.7"]
 
 [dependency-groups]
-dev = ["build>=1.2", "mypy>=1.10", "pytest>=8", "pytest-cov>=6", "ruff>=0.5", "twine>=5.0"]
+dev = ["build>=1.2", "mypy>=1.10", "pre-commit>=4", "pytest>=8", "pytest-cov>=6", "ruff>=0.5", "twine>=5.0"]
 
 [tool.uv]
 default-groups = ["dev"]
