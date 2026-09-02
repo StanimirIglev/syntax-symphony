@@ -2,8 +2,7 @@ import copy
 import logging
 import random
 from collections import deque
-from collections.abc import Callable, Generator, Iterable
-from itertools import chain
+from collections.abc import Callable, Iterable
 
 from .derivation_tree import DT
 from .grammar import Grammar, is_nonterminal
@@ -61,7 +60,9 @@ class SyntaxSymphony:
         # NOTE: Shuffle the paths, so that we only need to pop from the list.
         for symbol in self.uncovered_k_paths:
             self._rng.shuffle(self.uncovered_k_paths[symbol])
-        # self.k_tree_generator = self.convert_paths_to_trees(self.k_paths)
+        self._remaining_k_paths = sum(
+            len(paths) for paths in self.uncovered_k_paths.values()
+        )
 
     def symbol_cost(self, symbol: str, seen: set[str]) -> int | float:
         """Computes the cost of a symbol.
@@ -229,45 +230,6 @@ class SyntaxSymphony:
                 kpaths[symbol].extend(paths)
         return kpaths
 
-    def convert_paths_to_trees(
-        self, paths: dict[str, list[list[list[str]]]]
-    ) -> Generator[DT, None, None]:
-        """Converts the k-path symbol map to derivation trees.
-
-        Args:
-            paths (dict[str, list[list[str]]]):
-                A dictionary mapping each nonterminal to a list of paths.
-
-        Returns:
-            Generator[DT, None, None]: A generator for derivation trees.
-        """
-        # NOTE: Legacy function.
-
-        def expand_tree(tree: DT, path: list[list[str]], depth: int) -> DT:
-            if depth >= len(path):
-                return tree
-
-            expansion = path[depth]
-            children: list[DT] = []
-
-            if expansion not in self.grammar[tree.symbol]:
-                tree.children = None
-                return tree
-
-            for symbol in expansion:
-                if is_nonterminal(symbol):
-                    child_tree = expand_tree(DT(symbol, None), path, depth + 1)
-                    children.append(child_tree)
-                else:
-                    children.append(DT(symbol, []))
-
-            tree.children = children
-            return tree
-
-        for nonterminal in paths:
-            for path in paths[nonterminal]:
-                yield expand_tree(DT(nonterminal, None), path, 0)
-
     def complete_tree(self, dtree: DT) -> DT:
         """Completes a derivation tree by expanding the unexpanded nonterminals.
 
@@ -323,12 +285,12 @@ class SyntaxSymphony:
         return expand_tree(DT(item.symbol, None), path, 0)
 
     def remaining_k_paths(self) -> int:
-        """Computes the number of remaining uncovered k-paths.
+        """Return the number of remaining uncovered k-paths.
 
         Returns:
             int: The number of remaining uncovered k-paths.
         """
-        return len(list(chain.from_iterable(list(self.uncovered_k_paths.values()))))
+        return self._remaining_k_paths
 
     def tree_fuzz(self, tree: DT) -> DT:
         """Fuzzes a derivation tree by expanding the unexpanded nonterminals.
@@ -349,6 +311,7 @@ class SyntaxSymphony:
 
             if len(self.uncovered_k_paths[item.symbol]) > 0 and depth < self._max_depth:
                 path = self.uncovered_k_paths[item.symbol].pop()
+                self._remaining_k_paths -= 1
                 k_tree = self._k_path_to_tree(item, path)
                 for i in k_tree:
                     if i.children is None:
