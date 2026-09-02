@@ -110,10 +110,16 @@ options:
 ## API
 Syntax Symphony can also be used as a library in your Python projects. The API provides a simple interface to generate test inputs using the fuzzer.
 
+The public API is exported from the top-level `syntax_symphony` package:
+
+- `Grammar` — context-free grammar definition and validation
+- `SyntaxSymphony` — k-path coverage fuzzer
+- `DT` — derivation tree nodes (returned by `SyntaxSymphony.tree_fuzz()`)
+- `load_grammar_from_file` — load a grammar dictionary from a JSON file
+
 ### Example usage:
 ```python
-from syntax_symphony.fuzzer import SyntaxSymphony
-from syntax_symphony.grammar import Grammar
+from syntax_symphony import Grammar, SyntaxSymphony
 
 # Define the grammar
 grammar = Grammar({

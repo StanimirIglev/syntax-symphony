@@ -1,5 +1,4 @@
-from syntax_symphony.fuzzer import SyntaxSymphony
-from syntax_symphony.grammar import Grammar
+from syntax_symphony import Grammar, SyntaxSymphony
 
 # Define the grammar
 grammar = Grammar(
@@ -16,6 +15,6 @@ grammar = Grammar(
 fuzzer = SyntaxSymphony(grammar)
 
 # Generate 10 test cases
-for i in range(10):
+for _ in range(10):
     test_case = fuzzer.fuzz()
-    print(test_case)
+    print(test_case)  # noqa: T201
