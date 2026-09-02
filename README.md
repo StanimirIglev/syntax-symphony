@@ -105,7 +105,7 @@ options:
   -e EXT, --file-extension EXT
                         The file extension to be used for the produced documents. Default: txt
   --max-depth NUMBER    Maximum depth for the derivation trees. Default: 10
-  --min-depth NUMBER    Minimum depth for the derivation trees. Default: 1
+  --min-depth NUMBER    Minimum depth for the derivation trees. Default: 0
   -k NUMBER, --kcov NUMBER
                         Number of strings to generate for k-cov. Default: 1
   --seed NUMBER         Random seed for reproducible fuzzing. Default: non-deterministic

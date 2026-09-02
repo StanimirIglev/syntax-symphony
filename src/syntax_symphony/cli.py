@@ -69,11 +69,11 @@ def ssfuzz() -> None:
     parser.add_argument(
         "--min-depth",
         dest="min_depth",
-        default=1,
+        default=0,
         metavar="NUMBER",
         required=False,
         type=int,
-        help="Minimum depth for the derivation trees. Default: 1",
+        help="Minimum depth for the derivation trees. Default: 0",
     )
     parser.add_argument(
         "-k",
