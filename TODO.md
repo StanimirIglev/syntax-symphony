@@ -9,6 +9,5 @@
 Complementary techniques to add on top of the current fuzzer unit tests:
 
 - [ ] **Property-based testing (Hypothesis)** — round-trip properties for `Grammar.to_dict()` / `normalize()`, `DT.to_dict()` → `DT.from_dict()`, and `is_nonterminal()` invariants; fuzzer invariants such as `remaining_k_paths()` never increasing.
-- [ ] **Coverage thresholds (`pytest-cov`)** — add `pytest-cov` to dev dependencies and gate CI on a minimum line-coverage target for `fuzzer.py`.
 - [ ] **Golden / snapshot tests** — with a fixed `seed`, compare fuzz output sequences for tiny grammars to catch unintended algorithm changes.
 - [ ] **Mutation testing** — use a tool such as `mutmut` to measure and improve the strength of the fuzzer test suite.

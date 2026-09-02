@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-09-02
+
+### Added
+
+- `pytest-cov` dev dependency with branch coverage reporting enabled for all test runs.
+- Minimum coverage gate (`fail_under = 85`) in `[tool.coverage.report]`; pytest `addopts` run coverage on `syntax_symphony` by default.
+
 ## [0.4.0] - 2026-09-02
 
 ### Added

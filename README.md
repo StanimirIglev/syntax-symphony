@@ -34,7 +34,7 @@ cd syntax-symphony
 uv sync
 ```
 
-This creates a `.venv` virtual environment and installs the package in editable mode along with dev tools (pytest, ruff, mypy, build, twine).
+This creates a `.venv` virtual environment and installs the package in editable mode along with dev tools (pytest, pytest-cov, ruff, mypy, build, twine).
 
 3. Run the CLI via uv:
 ```bash

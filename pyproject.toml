@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syntax_symphony"
-version = "0.4.0"
+version = "0.4.1"
 description = "Efficient grammar-based fuzzer."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,7 +27,7 @@ classifiers = [
 dependencies = ["schema >= 0.7.7"]
 
 [dependency-groups]
-dev = ["build>=1.2", "mypy>=1.10", "pytest>=8", "ruff>=0.5", "twine>=5.0"]
+dev = ["build>=1.2", "mypy>=1.10", "pytest>=8", "pytest-cov>=6", "ruff>=0.5", "twine>=5.0"]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -47,6 +47,22 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "--cov=syntax_symphony --cov-report=term-missing:skip-covered"
+
+[tool.coverage.run]
+source = ["syntax_symphony"]
+branch = true
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
 
 [tool.ruff]
 target-version = "py312"
