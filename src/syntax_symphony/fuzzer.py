@@ -2,8 +2,8 @@ import copy
 import logging
 import random
 from collections import deque
+from collections.abc import Callable, Generator, Iterable
 from itertools import chain
-from typing import Callable, Generator, Iterable
 
 from .derivation_tree import DT
 from .grammar import Grammar, is_nonterminal
@@ -34,8 +34,10 @@ class SyntaxSymphony:
         Args:
             grammar (Grammar): The input grammar.
             kcov (int, optional): Max length for k-paths. Defaults to 1.
-            min_depth (int, optional): Minimal depth for derivation trees. Defaults to 0.
-            max_depth (int, optional): Maximal depth for derivation trees. Defaults to 10.
+            min_depth (int, optional): Minimal depth for derivation trees.
+                Defaults to 0.
+            max_depth (int, optional): Maximal depth for derivation trees.
+                Defaults to 10.
         """
         self.grammar = grammar
         self.start_symbol = grammar.start_symbol
@@ -108,8 +110,8 @@ class SyntaxSymphony:
         """Computes the costs for each symbol and its expansions.
 
         Returns:
-            dict[str, dict[str, int | float]]: A dictionary mapping each symbol to a dictionary
-            mapping each expansion to its cost.
+            dict[str, dict[str, int | float]]: A dictionary mapping each symbol
+            to a dictionary mapping each expansion to its cost.
         """
         costs: dict[str, dict[str, int | float]] = {}
         for sym in self.grammar:
@@ -125,8 +127,8 @@ class SyntaxSymphony:
         based on the provided bias function (min or max).
 
         Args:
-            bias (Callable[[Iterable[int  |  float]], int  |  float]): The bias function to use.
-            Either min or max.
+            bias (Callable[[Iterable[int | float]], int | float]): The bias
+                function to use. Either min or max.
 
         Returns:
             Grammar: A grammar biased towards maximizing/minimizing expansions.
@@ -136,9 +138,7 @@ class SyntaxSymphony:
             expansions = self.grammar[symbol]
             bias_cost = bias(exp_costs["".join(exp)] for exp in expansions)
             biased_grammar[symbol] = [
-                exp
-                for exp in expansions
-                if exp_costs["".join(exp)] == bias_cost
+                exp for exp in expansions if exp_costs["".join(exp)] == bias_cost
             ]
         return Grammar(biased_grammar, start_symbol=self.start_symbol)
 
@@ -153,8 +153,7 @@ class SyntaxSymphony:
         """
         if is_nonterminal(symbol):
             return DT(symbol, None)
-        else:
-            return DT(symbol, [])
+        return DT(symbol, [])
 
     def _pick_grammar(self, depth: int) -> Grammar:
         """Picks the grammar to use based on the depth of the derivation tree.
@@ -167,10 +166,9 @@ class SyntaxSymphony:
         """
         if depth < self._min_depth:
             return self.maximizing_grammar
-        elif self._min_depth <= depth < self._max_depth:
+        if self._min_depth <= depth < self._max_depth:
             return self.grammar
-        else:
-            return self.minimizing_grammar
+        return self.minimizing_grammar
 
     def _compute_k_paths(self, k: int) -> dict[str, list[list[list[str]]]]:
         """Computes the k-paths starting at each nonterminal.
@@ -179,7 +177,8 @@ class SyntaxSymphony:
             k (int): The length of the paths.
 
         Returns:
-            dict[str, list[list[str]]]: A dictionary mapping each nonterminal to a list of paths.
+            dict[str, list[list[str]]]: A dictionary mapping each nonterminal
+            to a list of paths.
         """
 
         def helper(expansion: list[str], depth: int) -> list[list[list[str]]]:
@@ -191,7 +190,7 @@ class SyntaxSymphony:
                 if is_nonterminal(symbol):
                     for sub_expansion in self.grammar[symbol]:
                         for path in helper(sub_expansion, depth - 1):
-                            new_paths.append([expansion] + path)
+                            new_paths.append([expansion, *path])
             return new_paths
 
         paths: dict[str, list[list[list[str]]]] = {}
@@ -202,16 +201,15 @@ class SyntaxSymphony:
 
         return paths
 
-    def compute_k_paths(
-        self, max_k: int = 1
-    ) -> dict[str, list[list[list[str]]]]:
+    def compute_k_paths(self, max_k: int = 1) -> dict[str, list[list[list[str]]]]:
         """Computes the k-paths up to a maximal k.
 
         Args:
             max_k (int, optional): The maximal length for a path. Defaults to 1.
 
         Returns:
-            dict[str, list[list[str]]]: A dictionary mapping each nonterminal to a list of paths.
+            dict[str, list[list[str]]]: A dictionary mapping each nonterminal
+            to a list of paths.
         """
         if max_k < 1:
             raise ValueError("max_k must be at least 1.")
@@ -280,8 +278,7 @@ class SyntaxSymphony:
             return DT(symbol, [self.complete_tree(c) for c in children])
         if is_nonterminal(symbol):
             return self.tree_fuzz(dtree)
-        else:
-            return DT(symbol, [])
+        return DT(symbol, [])
 
     def _k_path_to_tree(self, item: DT, path: list[list[str]]) -> DT:
         """Leads the derivation tree along the k-path expansions.
@@ -324,9 +321,7 @@ class SyntaxSymphony:
         Returns:
             int: The number of remaining uncovered k-paths.
         """
-        return len(
-            list(chain.from_iterable(list(self.uncovered_k_paths.values())))
-        )
+        return len(list(chain.from_iterable(list(self.uncovered_k_paths.values()))))
 
     def tree_fuzz(self, tree: DT) -> DT:
         """Fuzzes a derivation tree by expanding the unexpanded nonterminals.
@@ -345,10 +340,7 @@ class SyntaxSymphony:
                 # Nothing to expand
                 continue
 
-            if (
-                len(self.uncovered_k_paths[item.symbol]) > 0
-                and depth < self._max_depth
-            ):
+            if len(self.uncovered_k_paths[item.symbol]) > 0 and depth < self._max_depth:
                 path = self.uncovered_k_paths[item.symbol].pop()
                 k_tree = self._k_path_to_tree(item, path)
                 for i in k_tree:

@@ -4,7 +4,7 @@ import json
 import os
 import sys
 
-from schema import SchemaError  # type: ignore
+from schema import SchemaError
 
 from .fuzzer import SyntaxSymphony
 from .grammar import Grammar, load_grammar_from_file
@@ -125,9 +125,7 @@ def ssfuzz() -> None:
         string = fuzzer.fuzz()
         file_path = (
             f"{args.output_dir}/"
-            + hashlib.sha256(
-                string.encode(), usedforsecurity=False
-            ).hexdigest()
+            + hashlib.sha256(string.encode(), usedforsecurity=False).hexdigest()
             + f".{args.file_extension}"
         )
         with open(file_path, "w") as file:

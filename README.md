@@ -12,7 +12,8 @@ With Syntax Symphony, you can enhance the quality and reliability of your softwa
 ## Getting Started
 
 ### Prerequisites
-- Python 3.10 or higher
+- Python 3.12 or higher
+- [uv](https://docs.astral.sh/uv/) for local development
 
 ### Installation
 
@@ -20,31 +21,50 @@ With Syntax Symphony, you can enhance the quality and reliability of your softwa
 ```bash
 pip install syntax-symphony
 ```
+
 #### From Source
 1. Clone the repository:
 ```bash
-git clone
-cd syntax_symphony
+git clone https://github.com/StanimirIglev/syntax-symphony.git
+cd syntax-symphony
 ```
 
-2. We recommend creating a virtual environment to install the dependencies:
+2. Install the project and development dependencies with uv:
 ```bash
-python -m venv venv
-source venv/bin/activate
-python -m pip install -r requirements.txt
+uv sync
 ```
 
-3. Install locally (add flag -e to install in editable mode):
+This creates a `.venv` virtual environment and installs the package in editable mode along with dev tools (pytest, ruff, mypy, build, twine).
+
+3. Run the CLI via uv:
 ```bash
-pip install .
+uv run ssfuzz -g examples/expr_grammar.json -c 100
+```
+
+Alternatively, activate the virtual environment and use commands directly:
+```bash
+source .venv/bin/activate
+ssfuzz -g examples/expr_grammar.json -c 100
 ```
 
 4. To build the package:
 ```bash
-python -m pip install build
-python -m build
+uv build
+uv run twine check dist/*
 ```
-This should create the package in the `dist/` directory.
+
+Artifacts are written to the `dist/` directory.
+
+### Development
+
+Run the quality checks locally (same as CI):
+
+```bash
+uv run ruff check src tests
+uv run ruff format --check src tests
+uv run mypy src
+uv run pytest
+```
 
 ## CLI
 Syntax Symphony provides a command-line interface (CLI) to interact with the fuzzer. The CLI allows you to specify the grammar file, the number of test cases to generate, and the output directory to save the generated test cases among others.
@@ -78,7 +98,7 @@ options:
                         Start symbol of the grammar (without <...>). Default: start
   -c NUMBER, --count NUMBER
                         Number of strings to generate
-  -d DIR, --dir DIR     Output directory for the generated strings. Default: output
+  -d DIR, --dir DIR     Output directory for the generated strings. Default: out
   -e EXT, --file-extension EXT
                         The file extension to be used for the produced documents. Default: txt
   --max-depth NUMBER    Maximum depth for the derivation trees. Default: 10
@@ -114,7 +134,7 @@ for i in range(10):
 ```
 
 ## Contributing
-We welcome contributions from the community. If you have ideas for improvements, new features, or bug fixes, please submit a pull request or open an issue on our GitHub repository.
+We welcome contributions from the community. If you have ideas for improvements, new features, or bug fixes, please submit a pull request or open an issue on our [GitHub repository](https://github.com/StanimirIglev/syntax-symphony).
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for more details.

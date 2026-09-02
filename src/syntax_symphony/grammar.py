@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import json
 import logging
 import re
 from collections import UserDict
-from schema import Schema  # type: ignore
+from typing import Any
+
+from schema import Schema
 
 _logger = logging.getLogger(__name__)
 
@@ -32,7 +35,7 @@ class Grammar(UserDict[str, list[list[str]]]):
         self,
         productions: dict[str, list[list[str]]] | dict[str, list[str]] | None = None,
         start_symbol: str = "<start>",
-        **kwargs,  # type: ignore
+        **kwargs: Any,
     ):
         if dict_grammar_schema.is_valid(productions):
             _logger.debug("Normalizing grammar...")
@@ -54,13 +57,14 @@ class Grammar(UserDict[str, list[list[str]]]):
         """Get the start symbol of the grammar."""
         return self._start_symbol
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Grammar({super().__repr__()})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         result: list[str] = []
         for nonterminal, expansions in self.items():
-            rule = f"{nonterminal} ::= {' | '.join(''.join(expansion) for expansion in expansions)}"
+            joined = " | ".join("".join(expansion) for expansion in expansions)
+            rule = f"{nonterminal} ::= {joined}"
             if nonterminal == self.start_symbol:
                 result.insert(0, rule)
             else:

@@ -1,10 +1,10 @@
 from __future__ import annotations
-import logging
-from typing import Any, Union, TYPE_CHECKING
 
-from itertools import chain
+import logging
 from collections import deque
 from collections.abc import Iterator
+from itertools import chain
+from typing import TYPE_CHECKING, Any
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class DT:
             return 0
         return len(self.children)
 
-    def __getitem__(self, index: int | slice) -> Union[DT, list[DT]]:
+    def __getitem__(self, index: int | slice) -> DT | list[DT]:
         if self.children is None:
             raise IndexError("Unxpanded symbols do not have children!")
         return self.children[index]

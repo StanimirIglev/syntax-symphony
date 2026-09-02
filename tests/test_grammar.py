@@ -46,7 +46,7 @@ def test_unreachable_nonterminals():
 
 
 def test_is_valid():
-    assert Grammar.is_valid(expr_grammar) == True
+    assert Grammar.is_valid(expr_grammar)
 
     invalid_grammar = Grammar(
         {
@@ -69,4 +69,4 @@ def test_is_valid():
             "<invalid>": [["<expr>"]],
         }
     )
-    assert Grammar.is_valid(invalid_grammar) == False
+    assert not Grammar.is_valid(invalid_grammar)

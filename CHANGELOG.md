@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- CI workflow (`.github/workflows/ci.yml`) running ruff, mypy, and pytest on push via uv.
+- Dev dependency group with pytest, ruff, mypy, build, and twine (`pyproject.toml`, `uv.lock`).
+- Ruff and mypy configuration in `pyproject.toml`.
+
+### Changed
+
+- Publish workflow now runs only on version tags (`v*`), gates build on quality checks, and validates artifacts with `twine check`.
+- Migrated local development and CI to uv.
+- Minimum supported Python version raised to 3.12.
+- Removed redundant `setup.py`; `pyproject.toml` is the single packaging source of truth.
+- Stricter ruff and mypy (`strict = true`) configuration.
+
+### Removed
+
+- `setup.py` and `[project.optional-dependencies]` in favor of uv `[dependency-groups]`.
+- `requirements.txt`; runtime dependencies are declared in `pyproject.toml`.
+
 ## [0.1.5] - 2026-09-01
 
 ### Security

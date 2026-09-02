@@ -7,9 +7,8 @@ name = "syntax_symphony"
 version = "0.1.5"
 description = "Efficient grammar-based fuzzer."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
-    { name = "Stanimir Iglev" },
     { name = "Stanimir Iglev", email = "iglev.stanimir@gmail.com" },
 ]
 maintainers = [{ name = "Stanimir Iglev", email = "iglev.stanimir@gmail.com" }]
@@ -18,7 +17,7 @@ keywords = ["fuzzer", "fuzzing", "testing", "grammar", "grammars"]
 classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
     "Development Status :: 3 - Alpha",
     "Topic :: Software Development",
     "Topic :: Software Development :: Quality Assurance",
@@ -29,6 +28,17 @@ classifiers = [
 ]
 dependencies = ["schema >= 0.7.7"]
 
+[dependency-groups]
+dev = [
+    "build>=1.2",
+    "mypy>=1.10",
+    "pytest>=8",
+    "ruff>=0.5",
+    "twine>=5.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [project.urls]
 Homepage = "https://github.com/StanimirIglev/syntax-symphony"
@@ -39,6 +49,30 @@ Changelog = "https://github.com/StanimirIglev/syntax-symphony/blob/master/CHANGE
 [project.scripts]
 ssfuzz = "syntax_symphony.cli:ssfuzz"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "PT", "T20", "RET", "ARG"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/syntax_symphony/cli.py" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["syntax_symphony"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "schema.*"
+ignore_missing_imports = true

@@ -1,5 +1,5 @@
-from syntax_symphony.grammar import Grammar
 from syntax_symphony.fuzzer import SyntaxSymphony
+from syntax_symphony.grammar import Grammar
 
 grammar = Grammar(
     {
