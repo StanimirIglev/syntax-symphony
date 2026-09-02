@@ -44,13 +44,13 @@ class Grammar(UserDict[str, list[list[str]]]):
         grammar_schema.validate(productions)
 
         super().__init__(productions, **kwargs)  # type: ignore
-        assert start_symbol in self, (
-            f"Start symbol '{start_symbol}' not found in grammar."
-        )
+        if start_symbol not in self:
+            raise ValueError(f"Start symbol '{start_symbol}' not found in grammar.")
         self._start_symbol = start_symbol
-        assert len(self[start_symbol]) == 1, (
-            "Start symbol must have exactly one expansion alternative."
-        )
+        if len(self[start_symbol]) != 1:
+            raise ValueError(
+                "Start symbol must have exactly one expansion alternative."
+            )
 
     @property
     def start_symbol(self) -> str:

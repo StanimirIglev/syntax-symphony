@@ -203,7 +203,10 @@ class DT:
             DT: The derivation tree.
         """
         symbol = data.get("symbol")
-        assert isinstance(symbol, str)
+        if not isinstance(symbol, str):
+            raise TypeError(
+                f"Derivation tree symbol must be a string, got {type(symbol).__name__}."
+            )
         children = None
         if data["children"] is not None:
             children = [cls.from_dict(child) for child in data["children"]]

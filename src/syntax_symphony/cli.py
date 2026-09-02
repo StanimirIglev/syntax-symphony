@@ -112,9 +112,6 @@ def ssfuzz() -> None:
     except TypeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
-    except AssertionError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        sys.exit(1)
 
     fuzzer = SyntaxSymphony(grammar, args.kcov, args.min_depth, args.max_depth)
 

@@ -312,7 +312,10 @@ class SyntaxSymphony:
             tree.children = children
             return tree
 
-        assert item.children is None
+        if item.children is not None:
+            raise RuntimeError(
+                "k-path expansion requires an unexpanded derivation tree node."
+            )
         return expand_tree(DT(item.symbol, None), path, 0)
 
     def remaining_k_paths(self) -> int:
