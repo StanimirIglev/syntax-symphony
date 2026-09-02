@@ -31,7 +31,7 @@ class DT:
 
     def __getitem__(self, index: int | slice) -> DT | list[DT]:
         if self.children is None:
-            raise IndexError("Unxpanded symbols do not have children!")
+            raise IndexError("Unexpanded symbols do not have children!")
         return self.children[index]
 
     def __iter__(self) -> Iterator[DT]:
