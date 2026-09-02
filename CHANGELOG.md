@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-09-02
+
+### Added
+
+- `__version__` on the top-level `syntax_symphony` package, sourced from package metadata via `importlib.metadata.version`.
+
+### Fixed
+
+- CLI `--min-depth` default aligned with the API (`0`); previously the CLI defaulted to `1`.
+- Typo in `DT.__getitem__` error message (`Unexpanded`).
+
+### Changed
+
+- `SyntaxSymphony.remaining_k_paths()` now uses an O(1) counter instead of materializing all paths on each call.
+
+### Removed
+
+- Legacy `convert_paths_to_trees` method (unused).
+
 ## [0.3.0] - 2026-09-02
 
 ### Added
