@@ -85,6 +85,15 @@ def ssfuzz() -> None:
         type=int,
         help="Number of strings to generate for k-cov. Default: 1",
     )
+    parser.add_argument(
+        "--seed",
+        dest="seed",
+        metavar="NUMBER",
+        default=None,
+        required=False,
+        type=int,
+        help="Random seed for reproducible fuzzing. Default: non-deterministic",
+    )
 
     args = parser.parse_args()
 
@@ -113,7 +122,13 @@ def ssfuzz() -> None:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    fuzzer = SyntaxSymphony(grammar, args.kcov, args.min_depth, args.max_depth)
+    fuzzer = SyntaxSymphony(
+        grammar,
+        args.kcov,
+        args.min_depth,
+        args.max_depth,
+        seed=args.seed,
+    )
 
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)

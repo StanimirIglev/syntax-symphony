@@ -82,11 +82,14 @@ ssfuzz -g examples/expr_grammar.json -c 100 --start begin
 
 # Set the file extension
 ssfuzz -g examples/expr_grammar.json -c 100 -e json
+
+# Reproduce the same output sequence across runs
+ssfuzz -g examples/expr_grammar.json -c 100 --seed 42
 ```
 
 ### Full syntax:
 ```
-ssfuzz [-h] -g FILE [-s SYMBOL] -c NUMBER [-d DIR] [-e EXT] [--max-depth NUMBER] [--min-depth NUMBER] [-k NUMBER]
+ssfuzz [-h] -g FILE [-s SYMBOL] -c NUMBER [-d DIR] [-e EXT] [--max-depth NUMBER] [--min-depth NUMBER] [-k NUMBER] [--seed NUMBER]
 
 Syntax Symphony Fuzzer
 
@@ -105,6 +108,7 @@ options:
   --min-depth NUMBER    Minimum depth for the derivation trees. Default: 1
   -k NUMBER, --kcov NUMBER
                         Number of strings to generate for k-cov. Default: 1
+  --seed NUMBER         Random seed for reproducible fuzzing. Default: non-deterministic
 ```
 
 ## API
@@ -130,14 +134,16 @@ grammar = Grammar({
     "<number>": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 })
 
-# Create the fuzzer
-fuzzer = SyntaxSymphony(grammar)
+# Create the fuzzer (pass seed=42 for reproducible output)
+fuzzer = SyntaxSymphony(grammar, seed=42)
 
 # Generate 10 test cases
 for i in range(10):
     test_case = fuzzer.fuzz()
     print(test_case)
 ```
+
+Pass `seed` to get the same sequence of outputs across runs. The fuzzer uses a private `random.Random` instance, so it does not affect global random state. Omit `seed` (or pass `None`) for non-deterministic fuzzing.
 
 ## Contributing
 We welcome contributions from the community. If you have ideas for improvements, new features, or bug fixes, please submit a pull request or open an issue on our [GitHub repository](https://github.com/StanimirIglev/syntax-symphony).

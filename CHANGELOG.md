@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-02
+
+### Added
+
+- `seed` parameter on `SyntaxSymphony` for reproducible fuzzing runs via a private `random.Random` instance (does not affect global random state).
+- `--seed` CLI flag for reproducible `ssfuzz` output.
+- Comprehensive fuzzer unit tests: k-path computation (k=1,2,3), cost/biased-grammar logic, coverage tracking, min/max depth behaviour, seed reproducibility, and edge cases (terminal-only and recursive grammars).
+- Shared grammar fixtures in `tests/conftest.py`.
+
 ## [0.2.1] - 2026-09-02
 
 ### Fixed

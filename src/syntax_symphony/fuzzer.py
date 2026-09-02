@@ -28,6 +28,7 @@ class SyntaxSymphony:
         kcov: int = 1,
         min_depth: int = 0,
         max_depth: int = 10,
+        seed: int | None = None,
     ):
         """Initialize a fuzzer.
 
@@ -38,12 +39,15 @@ class SyntaxSymphony:
                 Defaults to 0.
             max_depth (int, optional): Maximal depth for derivation trees.
                 Defaults to 10.
+            seed (int | None, optional): Random seed for reproducible fuzzing.
+                Defaults to None (non-deterministic).
         """
         self.grammar = grammar
         self.start_symbol = grammar.start_symbol
         self._kcov = kcov
         self._min_depth = min_depth
         self._max_depth = max_depth
+        self._rng = random.Random(seed)
         self.symbol_costs: dict[str, int | float] = {}
         _logger.info("Computing costs...")
         self.costs = self.compute_cost()
@@ -56,7 +60,7 @@ class SyntaxSymphony:
         self.uncovered_k_paths = copy.deepcopy(self.k_paths)
         # NOTE: Shuffle the paths, so that we only need to pop from the list.
         for symbol in self.uncovered_k_paths:
-            random.shuffle(self.uncovered_k_paths[symbol])
+            self._rng.shuffle(self.uncovered_k_paths[symbol])
         # self.k_tree_generator = self.convert_paths_to_trees(self.k_paths)
 
     def symbol_cost(self, symbol: str, seen: set[str]) -> int | float:
@@ -352,7 +356,7 @@ class SyntaxSymphony:
                 item.children = k_tree.children
             else:
                 grammar = self._pick_grammar(depth)
-                expansion = random.choice(grammar[item.symbol])
+                expansion = self._rng.choice(grammar[item.symbol])
                 tree_expansion = [self.symbol_to_tree(t) for t in expansion]
                 item.children = tree_expansion
                 queue.extend((depth + 1, t) for t in tree_expansion)
