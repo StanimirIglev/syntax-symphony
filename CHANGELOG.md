@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-04
+
+### Added
+
+- `Grammar.validate()` raises `ValueError` for invalid grammars and returns `None` otherwise.
+- `SyntaxSymphony.fuzz_tree()` generates complete trees, replacing `tree_fuzz()`.
+
+### Fixed
+
+- Reject grammars with rules that cannot finish and fix rule selection for recursive grammars.
+
+### Changed
+
+- Fuzzers keep their own copy of the grammar. Create a new fuzzer to use edited rules.
+
+### Removed
+
+- Internal helpers are now private, and `seen` arguments are removed. See the [migration guide](README.md#migration-to-050).
+
 ## [0.4.3] - 2026-09-02
 
 ### Added

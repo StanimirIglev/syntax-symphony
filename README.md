@@ -108,7 +108,7 @@ options:
   -d DIR, --dir DIR     Output directory for the generated strings. Default: out
   -e EXT, --file-extension EXT
                         The file extension to be used for the produced documents. Default: txt
-  --max-depth NUMBER    Maximum depth for the derivation trees. Default: 10
+  --max-depth NUMBER    Depth at which minimum-cost completion begins. Default: 10
   --min-depth NUMBER    Minimum depth for the derivation trees. Default: 0
   -k NUMBER, --kcov NUMBER
                         Number of strings to generate for k-cov. Default: 1
@@ -122,7 +122,7 @@ The public API is exported from the top-level `syntax_symphony` package:
 
 - `Grammar` — context-free grammar definition and validation
 - `SyntaxSymphony` — k-path coverage fuzzer
-- `DT` — derivation tree nodes (returned by `SyntaxSymphony.tree_fuzz()`)
+- `DT` — derivation tree nodes (returned by `SyntaxSymphony.fuzz_tree()`)
 - `load_grammar_from_file` — load a grammar dictionary from a JSON file
 
 ### Example usage:
@@ -130,13 +130,15 @@ The public API is exported from the top-level `syntax_symphony` package:
 from syntax_symphony import Grammar, SyntaxSymphony
 
 # Define the grammar
-grammar = Grammar({
-    "<start>": ["<expr>"],
-    "<expr>": ["<term> + <expr>", "<term> - <expr>", "<term>"],
-    "<term>": ["<factor> * <term>", "<factor> / <term>", "<factor>"],
-    "<factor>": ["<number>", "(<expr>)"],
-    "<number>": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-})
+grammar = Grammar(
+    {
+        "<start>": ["<expr>"],
+        "<expr>": ["<term> + <expr>", "<term> - <expr>", "<term>"],
+        "<term>": ["<factor> * <term>", "<factor> / <term>", "<factor>"],
+        "<factor>": ["<number>", "(<expr>)"],
+        "<number>": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    }
+)
 
 # Create the fuzzer (pass seed=42 for reproducible output)
 fuzzer = SyntaxSymphony(grammar, seed=42)
@@ -148,6 +150,25 @@ for i in range(10):
 ```
 
 Pass `seed` to get the same sequence of outputs across runs. The fuzzer uses a private `random.Random` instance, so it does not affect global random state. Omit `seed` (or pass `None`) for non-deterministic fuzzing.
+
+### Migration to 0.5.0
+
+This version removes implementation details from the public API:
+
+| Earlier API | Supported API in 0.5.0 |
+|---|---|
+| `tree_fuzz(DT(start_symbol, None))` | `fuzz_tree()`; no starting tree argument is needed |
+| A cost mapping returned by `grammar.validate()` | `validate()` returns `None` or raises `ValueError`; `is_valid()` returns a Boolean |
+| `symbol_cost`, `expansion_cost`, `compute_cost`, `costs`, `symbol_costs`, `seen` arguments | Removed; completion costs are private analysis results |
+| `compute_biased_grammar`, `minimizing_grammar`, `maximizing_grammar`, `symbol_to_tree` | Private generation machinery |
+| `compute_k_paths`, `k_paths`, `uncovered_k_paths` | Private; use `remaining_k_paths()` to inspect progress |
+| `complete_tree` or supplying partial trees for generation | Removed from the supported interface; use `fuzz_tree()` for a new complete tree |
+| `normalize`, `is_nonterminal`, schema objects, `Grammar.extract_nonterminals` | Private helpers; construction normalizes input automatically |
+
+Grammar mapping operations, `to_dict()`, `from_dict()`, `reachable_nonterminals()`,
+and `unreachable_nonterminals()` remain available for definition and inspection.
+Use validation and reachability methods on the grammar instance. Derivation-tree
+inspection, serialization, validation, and traversal remain supported.
 
 ## Contributing
 We welcome contributions from the community. If you have ideas for improvements, new features, or bug fixes, please submit a pull request or open an issue on our [GitHub repository](https://github.com/StanimirIglev/syntax-symphony).

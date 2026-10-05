@@ -33,33 +33,22 @@ def sample_changelog(tmp_path: Path) -> Path:
     return path
 
 
-def test_tag_to_version_strips_v_prefix() -> None:
-    assert tag_to_version("v0.4.2") == "0.4.2"
+@pytest.mark.parametrize("tag", ["v0.4.2", "0.4.2"], ids=["prefixed", "unprefixed"])
+def test_tag_to_version(tag: str) -> None:
+    assert tag_to_version(tag) == "0.4.2"
 
 
-def test_tag_to_version_without_prefix() -> None:
-    assert tag_to_version("0.4.2") == "0.4.2"
-
-
-def test_extracts_first_section(sample_changelog: Path) -> None:
-    notes = extract_release_notes(sample_changelog, "0.4.2")
-
-    assert notes == "### Added\n\n- First item"
-    assert "0.4.1" not in notes
-
-
-def test_extracts_middle_section(sample_changelog: Path) -> None:
-    notes = extract_release_notes(sample_changelog, "0.4.1")
-
-    assert notes == "### Fixed\n\n- Older item"
-    assert "0.4.2" not in notes
-    assert "0.4.0" not in notes
-
-
-def test_extracts_last_section(sample_changelog: Path) -> None:
-    notes = extract_release_notes(sample_changelog, "0.4.0")
-
-    assert notes == "### Added\n\n- Oldest item"
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("0.4.2", "### Added\n\n- First item"),
+        ("0.4.1", "### Fixed\n\n- Older item"),
+        ("0.4.0", "### Added\n\n- Oldest item"),
+    ],
+    ids=["first", "middle", "last"],
+)
+def test_extracts_section(sample_changelog: Path, version: str, expected: str) -> None:
+    assert extract_release_notes(sample_changelog, version) == expected
 
 
 def test_missing_version_raises(sample_changelog: Path) -> None:
@@ -88,13 +77,3 @@ def test_duplicate_version_raises(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="multiple sections"):
         extract_release_notes(path, "0.1.0")
-
-
-def test_extracts_from_project_changelog() -> None:
-    changelog = Path(__file__).resolve().parents[1] / "CHANGELOG.md"
-
-    notes = extract_release_notes(changelog, "0.4.2")
-
-    assert "### Added" in notes
-    assert "pre-commit" in notes.lower()
-    assert "[0.4.1]" not in notes

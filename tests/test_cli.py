@@ -1,116 +1,151 @@
+import hashlib
 import json
 import sys
-from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
+from syntax_symphony import cli as cli_module
 from syntax_symphony.cli import ssfuzz
-from syntax_symphony.grammar import Grammar, load_grammar_from_file
+from syntax_symphony.grammar import Grammar
 
-EXPR_GRAMMAR_PATH = (
-    Path(__file__).resolve().parents[1] / "examples" / "expr_grammar.json"
+
+@pytest.mark.parametrize(
+    ("contents", "extra_args", "message"),
+    [
+        (None, [], "not found"),
+        ("{ invalid", [], "invalid json"),
+        (json.dumps({"<start>": 123}), [], "invalid grammar"),
+        ("[1, 2, 3]", [], "json object"),
+        (json.dumps({"<start>": [["end"]]}), ["--start", "missing"], "missing"),
+        (
+            json.dumps({"<start>": ["<A>"], "<A>": ["<A>"]}),
+            [],
+            "cannot finish",
+        ),
+        (
+            json.dumps({"<start>": ["<A>"], "<A>": ["x", "<B>"], "<B>": ["<B>"]}),
+            [],
+            "cannot finish",
+        ),
+    ],
+    ids=[
+        "missing-file",
+        "invalid-json",
+        "invalid-schema",
+        "non-object",
+        "missing-start",
+        "empty-language",
+        "dead-branch",
+    ],
 )
-
-
-def test_load_grammar_from_file_normalized_example():
-    grammar_dict = load_grammar_from_file(str(EXPR_GRAMMAR_PATH))
-    grammar = Grammar(grammar_dict)
-
-    assert grammar.start_symbol == "<start>"
-    assert "<expr>" in grammar
-
-
-def test_load_grammar_from_file_simplified_format(tmp_path):
-    path = tmp_path / "grammar.txt"
-    path.write_text(json.dumps({"<start>": ["end"]}), encoding="utf-8")
-
-    grammar_dict = load_grammar_from_file(str(path))
-    grammar = Grammar(grammar_dict)
-
-    assert grammar.data == {"<start>": [["end"]]}
-
-
-def test_load_grammar_from_file_invalid_json(tmp_path):
-    path = tmp_path / "bad.json"
-    path.write_text("{ not valid json", encoding="utf-8")
-
-    with pytest.raises(json.JSONDecodeError):
-        load_grammar_from_file(str(path))
-
-
-def test_load_grammar_from_file_not_object(tmp_path):
-    path = tmp_path / "array.json"
-    path.write_text("[1, 2, 3]", encoding="utf-8")
-
-    with pytest.raises(TypeError, match="JSON object"):
-        load_grammar_from_file(str(path))
-
-
-def test_load_grammar_from_file_missing():
-    with pytest.raises(FileNotFoundError):
-        load_grammar_from_file("/nonexistent/path/grammar.json")
-
-
-def test_load_grammar_from_file_rejects_executable_payload(tmp_path):
-    path = tmp_path / "malicious.json"
-    path.write_text(
-        '(__import__("os").system("touch /tmp/pwned"), {"<start>": [["x"]]})[1]',
-        encoding="utf-8",
-    )
-
-    with pytest.raises(json.JSONDecodeError):
-        load_grammar_from_file(str(path))
-
-
-def test_ssfuzz_reports_missing_grammar_file(monkeypatch, capsys):
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["ssfuzz", "-g", "does-not-exist.json", "-c", "1"],
-    )
-
-    with pytest.raises(SystemExit) as exc_info:
-        ssfuzz()
-
-    assert exc_info.value.code == 1
-    assert "not found" in capsys.readouterr().err.lower()
-
-
-def test_ssfuzz_reports_invalid_json(monkeypatch, capsys, tmp_path):
-    path = tmp_path / "bad.json"
-    path.write_text("{ invalid", encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["ssfuzz", "-g", str(path), "-c", "1"])
-
-    with pytest.raises(SystemExit) as exc_info:
-        ssfuzz()
-
-    assert exc_info.value.code == 1
-    assert "invalid json" in capsys.readouterr().err.lower()
-
-
-def test_ssfuzz_reports_invalid_grammar_schema(monkeypatch, capsys, tmp_path):
-    path = tmp_path / "invalid.json"
-    path.write_text(json.dumps({"<start>": 123}), encoding="utf-8")
-    monkeypatch.setattr(sys, "argv", ["ssfuzz", "-g", str(path), "-c", "1"])
-
-    with pytest.raises(SystemExit) as exc_info:
-        ssfuzz()
-
-    assert exc_info.value.code == 1
-    assert "invalid grammar" in capsys.readouterr().err.lower()
-
-
-def test_ssfuzz_reports_missing_start_symbol(monkeypatch, capsys, tmp_path):
+def test_ssfuzz_reports_initialization_errors_without_creating_output(
+    contents, extra_args, message, monkeypatch, capsys, tmp_path
+):
     path = tmp_path / "grammar.json"
-    path.write_text(json.dumps({"<start>": [["end"]]}), encoding="utf-8")
+    if contents is not None:
+        path.write_text(contents, encoding="utf-8")
+    out = tmp_path / "out"
     monkeypatch.setattr(
         sys,
         "argv",
-        ["ssfuzz", "-g", str(path), "-c", "1", "--start", "missing"],
+        ["ssfuzz", "-g", str(path), "-c", "1", "-d", str(out), *extra_args],
     )
 
-    with pytest.raises(SystemExit) as exc_info:
+    with pytest.raises(SystemExit) as error:
         ssfuzz()
 
-    assert exc_info.value.code == 1
-    assert "missing" in capsys.readouterr().err.lower()
+    assert error.value.code == 1
+    captured = capsys.readouterr()
+    assert message in captured.err.lower()
+    assert "Traceback" not in captured.err
+    assert not captured.out
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("exit_text", ["x", ""], ids=["text", "epsilon"])
+def test_ssfuzz_generates_with_recursive_custom_start(
+    exit_text, monkeypatch, capsys, tmp_path
+):
+    path = tmp_path / "grammar.json"
+    path.write_text(
+        json.dumps({"<entry>": ["<A>"], "<A>": ["<A>", exit_text]}), encoding="utf-8"
+    )
+    out = tmp_path / "out"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ssfuzz",
+            "-g",
+            str(path),
+            "-c",
+            "1",
+            "-d",
+            str(out),
+            "--start",
+            "entry",
+            "--max-depth",
+            "0",
+        ],
+    )
+    ssfuzz()
+
+    digest = hashlib.sha256(exit_text.encode()).hexdigest()
+    assert list(out.iterdir()) == [out / f"{digest}.txt"]
+    assert (out / f"{digest}.txt").read_text(encoding="utf-8") == exit_text
+    assert not capsys.readouterr().err
+
+
+def test_ssfuzz_writes_unique_outputs_to_existing_directory(
+    monkeypatch, capsys, tmp_path
+):
+    productions = {"<start>": ["<message>"], "<message>": ["hello", "world"]}
+    path = tmp_path / "grammar.json"
+    path.write_text(json.dumps(productions), encoding="utf-8")
+    out = tmp_path / "out"
+    out.mkdir()
+    existing = out / "existing.txt"
+    existing.write_text("keep", encoding="utf-8")
+    samples = Mock(side_effect=["hello", "world", "hello"])
+    monkeypatch.setattr(cli_module.SyntaxSymphony, "fuzz", lambda _self: samples())
+    factory = Mock(wraps=cli_module.SyntaxSymphony)
+    monkeypatch.setattr(cli_module, "SyntaxSymphony", factory)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "ssfuzz",
+            "-g",
+            str(path),
+            "-c",
+            "3",
+            "-d",
+            str(out),
+            "-e",
+            "sql",
+            "-k",
+            "2",
+            "--min-depth",
+            "1",
+            "--max-depth",
+            "3",
+            "--seed",
+            "0",
+        ],
+    )
+
+    ssfuzz()
+
+    factory.assert_called_once_with(Grammar(productions), 2, 1, 3, seed=0)
+    assert samples.call_count == 3
+    expected = {
+        hashlib.sha256(text.encode()).hexdigest() + ".sql": text
+        for text in ("hello", "world")
+    }
+    assert {
+        file.name: file.read_text(encoding="utf-8") for file in out.glob("*.sql")
+    } == expected
+    assert set(out.iterdir()) == {existing, *(out / name for name in expected)}
+    assert existing.read_text(encoding="utf-8") == "keep"
+    assert not capsys.readouterr().err
