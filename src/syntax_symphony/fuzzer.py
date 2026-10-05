@@ -5,7 +5,9 @@ from collections import deque
 from collections.abc import Callable, Iterable
 
 from .derivation_tree import DT
-from .grammar import Grammar, is_nonterminal
+from .grammar import Grammar, _GrammarAnalysis, _is_nonterminal
+
+__all__ = ["SyntaxSymphony"]
 
 _logger = logging.getLogger(__name__)
 
@@ -15,10 +17,8 @@ class SyntaxSymphony:
 
     The SyntaxSymphony fuzzer aims to cover all elements of the grammar
     utilizing a k-path coverage strategy. The size of the k-paths can be
-    adjusted by the user.
-    Additionally, the fuzzer provides a mechanism to control the size
-    of the generated values by controlling the minimal and maximal depth
-    of the derivation trees.
+    adjusted by the user. Depth thresholds bias expansion toward growing
+    or finishing the tree.
     """
 
     def __init__(
@@ -36,102 +36,56 @@ class SyntaxSymphony:
             kcov (int, optional): Max length for k-paths. Defaults to 1.
             min_depth (int, optional): Minimal depth for derivation trees.
                 Defaults to 0.
-            max_depth (int, optional): Maximal depth for derivation trees.
-                Defaults to 10.
+            max_depth (int, optional): Depth at which minimum-cost completion
+                begins. The finished tree may be deeper. Defaults to 10.
             seed (int | None, optional): Random seed for reproducible fuzzing.
                 Defaults to None (non-deterministic).
+
+        Raises:
+            ValueError: If any rule is undefined, unused, unreachable, or unable
+                to finish producing terminal text.
         """
-        self.grammar = grammar
-        self.start_symbol = grammar.start_symbol
+        # Keep nested token lists private so costs and coverage remain consistent.
+        self._grammar = copy.deepcopy(grammar)
+        _logger.info("Validating grammar and computing completion costs...")
+        analysis = self._grammar._analyze()
+        analysis.raise_if_invalid()
         self._kcov = kcov
         self._min_depth = min_depth
         self._max_depth = max_depth
         self._rng = random.Random(seed)
-        self.symbol_costs: dict[str, int | float] = {}
-        _logger.info("Computing costs...")
-        self.costs = self.compute_cost()
         _logger.info("Generating minimizing grammar...")
-        self.minimizing_grammar = self.compute_biased_grammar(min)
+        self._minimizing_grammar = self._build_biased_grammar(analysis, min)
         _logger.info("Generating maximizing grammar...")
-        self.maximizing_grammar = self.compute_biased_grammar(max)
+        self._maximizing_grammar = self._build_biased_grammar(analysis, max)
         _logger.info("Computing k-paths...")
-        self.k_paths = self.compute_k_paths(kcov)
-        self.uncovered_k_paths = copy.deepcopy(self.k_paths)
+        self._uncovered_k_paths = self._compute_k_paths(kcov)
         # NOTE: Shuffle the paths, so that we only need to pop from the list.
-        for symbol in self.uncovered_k_paths:
-            self._rng.shuffle(self.uncovered_k_paths[symbol])
+        for paths in self._uncovered_k_paths.values():
+            self._rng.shuffle(paths)
         self._remaining_k_paths = sum(
-            len(paths) for paths in self.uncovered_k_paths.values()
+            len(paths) for paths in self._uncovered_k_paths.values()
         )
 
-    def symbol_cost(self, symbol: str, seen: set[str]) -> int | float:
-        """Computes the cost of a symbol.
+    @property
+    def grammar(self) -> Grammar:
+        """An independent copy of the grammar used by this fuzzer."""
+        return copy.deepcopy(self._grammar)
 
-        Args:
-            symbol (str): The symbol to compute the cost of.
-            seen (set[str]): The set of symbols that have already been seen.
+    @property
+    def start_symbol(self) -> str:
+        return self._grammar.start_symbol
 
-        Returns:
-            int | float: The cost of the symbol.
-        """
-        if symbol in self.symbol_costs:
-            return self.symbol_costs[symbol]
-
-        if symbol in seen:
-            cost = float("inf")
-            self.symbol_costs[symbol] = cost
-            return cost
-
-        expansion_costs = [
-            self.expansion_cost(exp, seen | {symbol})
-            for exp in self.grammar.get(symbol, [])
-        ]
-        min_cost = min(expansion_costs, default=0)
-        self.symbol_costs[symbol] = min_cost
-        return min_cost
-
-    def expansion_cost(
+    def _build_biased_grammar(
         self,
-        expansion: list[str],
-        seen: set[str],
-    ) -> int | float:
-        """Computes the cost of an expansion.
-
-        Args:
-            expansion (list[str]): The expansion to compute the cost of.
-            seen (set[str]): The set of symbols that have already been seen.
-
-        Returns:
-            int | float: The cost of the expansion.
-        """
-        symbol_costs = [
-            self.symbol_cost(symbol, seen)
-            for symbol in expansion
-            if symbol in self.grammar
-        ]
-        return max(symbol_costs, default=0) + 1
-
-    def compute_cost(self) -> dict[str, dict[str, int | float]]:
-        """Computes the costs for each symbol and its expansions.
-
-        Returns:
-            dict[str, dict[str, int | float]]: A dictionary mapping each symbol
-            to a dictionary mapping each expansion to its cost.
-        """
-        costs: dict[str, dict[str, int | float]] = {}
-        for sym in self.grammar:
-            costs[sym] = {}
-            for exp in self.grammar[sym]:
-                costs[sym]["".join(exp)] = self.expansion_cost(exp, set())
-        return costs
-
-    def compute_biased_grammar(
-        self, bias: Callable[[Iterable[int | float]], int | float]
+        analysis: _GrammarAnalysis,
+        bias: Callable[[Iterable[int | float]], int | float],
     ) -> Grammar:
         """Creates a grammar that is biased towards maximizing/minimizing expansions,
         based on the provided bias function (min or max).
 
         Args:
+            analysis (_GrammarAnalysis): The analysis of the grammar.
             bias (Callable[[Iterable[int | float]], int | float]): The bias
                 function to use. Either min or max.
 
@@ -139,15 +93,17 @@ class SyntaxSymphony:
             Grammar: A grammar biased towards maximizing/minimizing expansions.
         """
         biased_grammar: dict[str, list[list[str]]] = {}
-        for symbol, exp_costs in self.costs.items():
-            expansions = self.grammar[symbol]
-            bias_cost = bias(exp_costs["".join(exp)] for exp in expansions)
+        for symbol, expansions in self._grammar.items():
+            expansion_costs = analysis.expansion_costs[symbol]
+            bias_cost = bias(expansion_costs)
             biased_grammar[symbol] = [
-                exp for exp in expansions if exp_costs["".join(exp)] == bias_cost
+                exp.copy()
+                for exp, cost in zip(expansions, expansion_costs, strict=True)
+                if cost == bias_cost
             ]
         return Grammar(biased_grammar, start_symbol=self.start_symbol)
 
-    def symbol_to_tree(self, symbol: str) -> DT:
+    def _symbol_to_tree(self, symbol: str) -> DT:
         """Converts a symbol to a derivation tree.
 
         Args:
@@ -156,7 +112,7 @@ class SyntaxSymphony:
         Returns:
             DT: A derivation tree representing the symbol.
         """
-        if is_nonterminal(symbol):
+        if _is_nonterminal(symbol):
             return DT(symbol, None)
         return DT(symbol, [])
 
@@ -170,12 +126,12 @@ class SyntaxSymphony:
             Grammar: The grammar to use for the next expansion.
         """
         if depth < self._min_depth:
-            return self.maximizing_grammar
+            return self._maximizing_grammar
         if self._min_depth <= depth < self._max_depth:
-            return self.grammar
-        return self.minimizing_grammar
+            return self._grammar
+        return self._minimizing_grammar
 
-    def _compute_k_paths(self, k: int) -> dict[str, list[list[list[str]]]]:
+    def _k_paths_of_length(self, k: int) -> dict[str, list[list[list[str]]]]:
         """Computes the k-paths starting at each nonterminal.
 
         Args:
@@ -188,29 +144,29 @@ class SyntaxSymphony:
 
         def helper(expansion: list[str], depth: int) -> list[list[list[str]]]:
             if depth == 0:
-                return [[expansion]]
+                return [[expansion.copy()]]
 
             new_paths: list[list[list[str]]] = []
             for symbol in expansion:
-                if is_nonterminal(symbol):
-                    for sub_expansion in self.grammar[symbol]:
+                if _is_nonterminal(symbol):
+                    for sub_expansion in self._grammar[symbol]:
                         for path in helper(sub_expansion, depth - 1):
-                            new_paths.append([expansion, *path])
+                            new_paths.append([expansion.copy(), *path])
             return new_paths
 
         paths: dict[str, list[list[list[str]]]] = {}
-        for nonterminal in self.grammar:
+        for nonterminal in self._grammar:
             paths[nonterminal] = []
-            for expansion in self.grammar[nonterminal]:
+            for expansion in self._grammar[nonterminal]:
                 paths[nonterminal].extend(helper(expansion, k - 1))
 
         return paths
 
-    def compute_k_paths(self, max_k: int = 1) -> dict[str, list[list[list[str]]]]:
+    def _compute_k_paths(self, max_k: int) -> dict[str, list[list[list[str]]]]:
         """Computes the k-paths up to a maximal k.
 
         Args:
-            max_k (int, optional): The maximal length for a path. Defaults to 1.
+            max_k (int): The maximal length for a path.
 
         Returns:
             dict[str, list[list[str]]]: A dictionary mapping each nonterminal
@@ -223,28 +179,12 @@ class SyntaxSymphony:
                 "max_k > 5 may take a long time and a lot of memory to compute "
                 "if the grammar is large."
             )
-        kpaths = self._compute_k_paths(1)
+        kpaths = self._k_paths_of_length(1)
         for k in range(2, max_k + 1):
-            new_paths = self._compute_k_paths(k)
+            new_paths = self._k_paths_of_length(k)
             for symbol, paths in new_paths.items():
                 kpaths[symbol].extend(paths)
         return kpaths
-
-    def complete_tree(self, dtree: DT) -> DT:
-        """Completes a derivation tree by expanding the unexpanded nonterminals.
-
-        Args:
-            dtree (DT): The derivation tree to complete.
-
-        Returns:
-            DT: The completed derivation tree.
-        """
-        symbol, children = dtree.symbol, dtree.children
-        if children:
-            return DT(symbol, [self.complete_tree(c) for c in children])
-        if is_nonterminal(symbol):
-            return self.tree_fuzz(dtree)
-        return DT(symbol, [])
 
     def _k_path_to_tree(self, item: DT, path: list[list[str]]) -> DT:
         """Leads the derivation tree along the k-path expansions.
@@ -264,12 +204,12 @@ class SyntaxSymphony:
             expansion = path[depth]
             children: list[DT] = []
 
-            if expansion not in self.grammar[tree.symbol]:
+            if expansion not in self._grammar[tree.symbol]:
                 tree.children = None
                 return tree
 
             for symbol in expansion:
-                if is_nonterminal(symbol):
+                if _is_nonterminal(symbol):
                     child_tree = expand_tree(DT(symbol, None), path, depth + 1)
                     children.append(child_tree)
                 else:
@@ -292,7 +232,7 @@ class SyntaxSymphony:
         """
         return self._remaining_k_paths
 
-    def tree_fuzz(self, tree: DT) -> DT:
+    def _expand_tree(self, tree: DT) -> DT:
         """Fuzzes a derivation tree by expanding the unexpanded nonterminals.
 
         Args:
@@ -304,13 +244,13 @@ class SyntaxSymphony:
         queue: deque[tuple[int, DT]] = deque()
         queue.append((0, tree))
         while queue:
-            (depth, item) = queue.popleft()
+            depth, item = queue.popleft()
             if item.children is not None:
                 # Nothing to expand
                 continue
 
-            if len(self.uncovered_k_paths[item.symbol]) > 0 and depth < self._max_depth:
-                path = self.uncovered_k_paths[item.symbol].pop()
+            if self._uncovered_k_paths[item.symbol] and depth < self._max_depth:
+                path = self._uncovered_k_paths[item.symbol].pop()
                 self._remaining_k_paths -= 1
                 k_tree = self._k_path_to_tree(item, path)
                 for i in k_tree:
@@ -320,10 +260,14 @@ class SyntaxSymphony:
             else:
                 grammar = self._pick_grammar(depth)
                 expansion = self._rng.choice(grammar[item.symbol])
-                tree_expansion = [self.symbol_to_tree(t) for t in expansion]
+                tree_expansion = [self._symbol_to_tree(t) for t in expansion]
                 item.children = tree_expansion
                 queue.extend((depth + 1, t) for t in tree_expansion)
         return tree
+
+    def fuzz_tree(self) -> DT:
+        """Generate a complete derivation tree from the configured start symbol."""
+        return self._expand_tree(DT(self.start_symbol, None))
 
     def fuzz(self) -> str:
         """Generates fuzz.
@@ -331,5 +275,4 @@ class SyntaxSymphony:
         Returns:
             str: The fuzz.
         """
-        tree = self.tree_fuzz(DT(self.start_symbol, None))
-        return tree.to_str()
+        return self.fuzz_tree().to_str()

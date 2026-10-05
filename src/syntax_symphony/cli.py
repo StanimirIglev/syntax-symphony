@@ -64,7 +64,7 @@ def ssfuzz() -> None:
         metavar="NUMBER",
         required=False,
         type=int,
-        help="Maximum depth for the derivation trees. Default: 10",
+        help="Depth at which minimum-cost completion begins. Default: 10",
     )
     parser.add_argument(
         "--min-depth",
@@ -100,6 +100,13 @@ def ssfuzz() -> None:
     try:
         grammar_dict = load_grammar_from_file(args.grammar)
         grammar = Grammar(grammar_dict, f"<{args.start_symbol}>")
+        fuzzer = SyntaxSymphony(
+            grammar,
+            args.kcov,
+            args.min_depth,
+            args.max_depth,
+            seed=args.seed,
+        )
     except FileNotFoundError:
         print(f"Error: Grammar file not found: {args.grammar}", file=sys.stderr)
         sys.exit(1)
@@ -121,14 +128,6 @@ def ssfuzz() -> None:
     except TypeError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
-
-    fuzzer = SyntaxSymphony(
-        grammar,
-        args.kcov,
-        args.min_depth,
-        args.max_depth,
-        seed=args.seed,
-    )
 
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)

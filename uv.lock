@@ -1072,7 +1072,7 @@ wheels = [
 
 [[package]]
 name = "syntax-symphony"
-version = "0.4.3"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "schema" },
