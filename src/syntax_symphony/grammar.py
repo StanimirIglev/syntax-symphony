@@ -44,7 +44,7 @@ def _expansion_completion_cost(
 
 @dataclass(frozen=True)
 class _GrammarAnalysis:
-    """Private analysis results; alternative costs follow the grammar's order."""
+    """Analysis of a grammar's costs and errors."""
 
     symbol_costs: dict[str, int | float]
     expansion_costs: dict[str, tuple[int | float, ...]]
@@ -166,7 +166,7 @@ class Grammar(UserDict[str, list[list[str]]]):
         return set(self) - self.reachable_nonterminals()
 
     def _analyze(self) -> _GrammarAnalysis:
-        """Compute diagnostics and all completion costs in one private analysis."""
+        """Compute diagnostics and all completion costs."""
         if not _GRAMMAR_SCHEMA.is_valid(self.data):
             return _GrammarAnalysis(
                 {},

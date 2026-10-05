@@ -130,15 +130,13 @@ The public API is exported from the top-level `syntax_symphony` package:
 from syntax_symphony import Grammar, SyntaxSymphony
 
 # Define the grammar
-grammar = Grammar(
-    {
+grammar = Grammar({
         "<start>": ["<expr>"],
         "<expr>": ["<term> + <expr>", "<term> - <expr>", "<term>"],
         "<term>": ["<factor> * <term>", "<factor> / <term>", "<factor>"],
         "<factor>": ["<number>", "(<expr>)"],
         "<number>": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
-    }
-)
+})
 
 # Create the fuzzer (pass seed=42 for reproducible output)
 fuzzer = SyntaxSymphony(grammar, seed=42)

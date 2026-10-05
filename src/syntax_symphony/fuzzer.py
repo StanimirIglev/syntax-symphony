@@ -17,12 +17,8 @@ class SyntaxSymphony:
 
     The SyntaxSymphony fuzzer aims to cover all elements of the grammar
     utilizing a k-path coverage strategy. The size of the k-paths can be
-    adjusted by the user.
-    Depth thresholds bias expansion toward growing or finishing the tree.
-
-    The grammar is snapshotted on initialization. The ``grammar`` property
-    returns an independent copy for inspection. Create a new fuzzer to use a
-    changed grammar.
+    adjusted by the user. Depth thresholds bias expansion toward growing
+    or finishing the tree.
     """
 
     def __init__(
@@ -85,7 +81,17 @@ class SyntaxSymphony:
         analysis: _GrammarAnalysis,
         bias: Callable[[Iterable[int | float]], int | float],
     ) -> Grammar:
-        """Select alternatives using the costs already computed by analysis."""
+        """Creates a grammar that is biased towards maximizing/minimizing expansions,
+        based on the provided bias function (min or max).
+
+        Args:
+            analysis (_GrammarAnalysis): The analysis of the grammar.
+            bias (Callable[[Iterable[int | float]], int | float]): The bias
+                function to use. Either min or max.
+
+        Returns:
+            Grammar: A grammar biased towards maximizing/minimizing expansions.
+        """
         biased_grammar: dict[str, list[list[str]]] = {}
         for symbol, expansions in self._grammar.items():
             expansion_costs = analysis.expansion_costs[symbol]
