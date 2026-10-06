@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 
 from .derivation_tree import DT
 from .grammar import Grammar, _GrammarAnalysis, _is_nonterminal
@@ -142,23 +142,35 @@ class SyntaxSymphony:
             to a list of paths.
         """
 
-        def helper(expansion: list[str], depth: int) -> list[list[list[str]]]:
-            if depth == 0:
-                return [[expansion.copy()]]
-
-            new_paths: list[list[list[str]]] = []
-            for symbol in expansion:
-                if _is_nonterminal(symbol):
-                    for sub_expansion in self._grammar[symbol]:
-                        for path in helper(sub_expansion, depth - 1):
-                            new_paths.append([expansion.copy(), *path])
-            return new_paths
+        def successors(expansion: list[str]) -> Iterator[list[str]]:
+            return (
+                alternative
+                for symbol in expansion
+                if _is_nonterminal(symbol)
+                for alternative in self._grammar[symbol]
+            )
 
         paths: dict[str, list[list[list[str]]]] = {}
         for nonterminal in self._grammar:
             paths[nonterminal] = []
             for expansion in self._grammar[nonterminal]:
-                paths[nonterminal].extend(helper(expansion, k - 1))
+                path = [expansion]
+                stack = [(k - 1, successors(expansion))]
+                while stack:
+                    depth, cursor = stack[-1]
+                    if depth == 0:
+                        paths[nonterminal].append([exp.copy() for exp in path])
+                        stack.pop()
+                        path.pop()
+                        continue
+                    try:
+                        child_expansion = next(cursor)
+                    except StopIteration:
+                        stack.pop()
+                        path.pop()
+                        continue
+                    path.append(child_expansion)
+                    stack.append((depth - 1, successors(child_expansion)))
 
         return paths
 
@@ -197,32 +209,26 @@ class SyntaxSymphony:
             DT: The expanded derivation tree.
         """
 
-        def expand_tree(tree: DT, path: list[list[str]], depth: int) -> DT:
-            if depth >= len(path):
-                return tree
-
-            expansion = path[depth]
-            children: list[DT] = []
-
-            if expansion not in self._grammar[tree.symbol]:
-                tree.children = None
-                return tree
-
-            for symbol in expansion:
-                if _is_nonterminal(symbol):
-                    child_tree = expand_tree(DT(symbol, None), path, depth + 1)
-                    children.append(child_tree)
-                else:
-                    children.append(DT(symbol, []))
-
-            tree.children = children
-            return tree
-
         if item.children is not None:
             raise RuntimeError(
                 "k-path expansion requires an unexpanded derivation tree node."
             )
-        return expand_tree(DT(item.symbol, None), path, 0)
+        root = DT(item.symbol, None)
+        stack = [(root, 0)]
+        while stack:
+            tree, depth = stack.pop()
+            if depth >= len(path):
+                continue
+            expansion = path[depth]
+            if expansion not in self._grammar[tree.symbol]:
+                continue
+            tree.children = [self._symbol_to_tree(symbol) for symbol in expansion]
+            stack.extend(
+                (child, depth + 1)
+                for child in reversed(tree.children)
+                if _is_nonterminal(child.symbol)
+            )
+        return root
 
     def remaining_k_paths(self) -> int:
         """Return the number of remaining uncovered k-paths.

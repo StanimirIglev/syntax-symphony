@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from collections import deque
 from collections.abc import Iterator
-from itertools import chain
 from typing import TYPE_CHECKING, Any
 
 _logger = logging.getLogger(__name__)
@@ -14,6 +13,9 @@ if TYPE_CHECKING:
 
 class DT:
     """A derivation tree.
+
+    Operations support finite acyclic trees. Do not mutate children during
+    traversal. Repeated references to a subtree are visited per occurrence.
 
     Attributes:
         symbol (str): The grammar symbol.
@@ -35,15 +37,33 @@ class DT:
         return self.children[index]
 
     def __iter__(self) -> Iterator[DT]:
-        return chain([self], *(child for child in self.children or []))
+        return self.depth_first_preorder_iterator()
 
     def __str__(self) -> str:
-        if not self.children:
-            return str(self.symbol)
-        return "".join(str(child) for child in self.children)
+        return self.to_str()
 
     def __repr__(self) -> str:
-        return f"DT({self.symbol!r}, {self.children!r})"
+        parts: list[str] = []
+        stack: list[tuple[Iterator[DT], bool]] = [(iter((self,)), True)]
+        while stack:
+            cursor, first = stack[-1]
+            try:
+                node = next(cursor)
+            except StopIteration:
+                stack.pop()
+                if stack:
+                    parts.append("])")
+                continue
+            if not first:
+                parts.append(", ")
+            stack[-1] = (cursor, False)
+            parts.append(f"DT({node.symbol!r}, ")
+            if node.children is None:
+                parts.append("None)")
+            else:
+                parts.append("[")
+                stack.append((iter(node.children), True))
+        return "".join(parts)
 
     def __contains__(self, item: DT) -> bool:
         if not self.children:
@@ -53,13 +73,25 @@ class DT:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, DT):
             return False
-        if self.symbol != other.symbol:
-            return False
-        if self.children is None and other.children is None:
-            return True
-        if self.children == [] and other.children == []:
-            return True
-        return self.children == other.children
+        stack: list[Iterator[tuple[DT, DT]]] = [iter(((self, other),))]
+        while stack:
+            try:
+                left, right = next(stack[-1])
+            except StopIteration:
+                stack.pop()
+                continue
+            if left is right:
+                continue
+            if left.symbol != right.symbol:
+                return False
+            if left.children is None or right.children is None:
+                if left.children is not right.children:
+                    return False
+                continue
+            if len(left.children) != len(right.children):
+                return False
+            stack.append(iter(zip(left.children, right.children, strict=True)))
+        return True
 
     @property
     def symbol(self) -> str:
@@ -79,30 +111,25 @@ class DT:
         Returns:
             bool: True if the tree is valid, False otherwise.
         """
-        if self.children == []:
-            if self.symbol in grammar:
-                _logger.warning("Nonterminal %s has no children!", self.symbol)
+        for node, _ in self._preorder_with_depth():
+            if node.children == []:
+                if node.symbol in grammar:
+                    _logger.warning("Nonterminal %s has no children!", node.symbol)
+                    return False
+                continue
+
+            if node.symbol not in grammar:
+                _logger.warning("Symbol %s not in grammar!", node.symbol)
                 return False
-            return True
 
-        if self.symbol not in grammar:
-            _logger.warning("Symbol %s not in grammar!", self.symbol)
-            return False
+            if node.children is None:
+                continue
 
-        if self.children is None:
-            return True
-
-        valid = False
-        children = "".join(c.symbol for c in self.children)
-        for exp in grammar[self.symbol]:
-            if children == "".join(exp):
-                valid = True
-                break
-        if not valid:
-            _logger.warning("Invalid expansion: %s for %s", children, self.symbol)
-            return False
-
-        return all(child.is_valid(grammar) for child in self.children)
+            children = "".join(child.symbol for child in node.children)
+            if not any(children == "".join(exp) for exp in grammar[node.symbol]):
+                _logger.warning("Invalid expansion: %s for %s", children, node.symbol)
+                return False
+        return True
 
     def add_child(self, child: DT) -> None:
         """Add a child to the node.
@@ -120,9 +147,21 @@ class DT:
         Returns:
             int: The height of the tree.
         """
-        if not self.children:
-            return 1
-        return 1 + max(child.height() for child in self.children)
+        return max(depth for _, depth in self._preorder_with_depth())
+
+    def _preorder_with_depth(self) -> Iterator[tuple[DT, int]]:
+        """Walk left to right with root depth one and one cursor per ancestor."""
+        stack: list[tuple[Iterator[DT], int]] = [(iter((self,)), 1)]
+        while stack:
+            cursor, depth = stack[-1]
+            try:
+                node = next(cursor)
+            except StopIteration:
+                stack.pop()
+                continue
+            yield node, depth
+            if node.children:
+                stack.append((iter(node.children), depth + 1))
 
     def clone(self) -> DT:
         """Clone the tree.
@@ -130,9 +169,21 @@ class DT:
         Returns:
             DT : The cloned tree.
         """
-        if self.children is None:
-            return DT(self.symbol, None)
-        return DT(self.symbol, [child.clone() for child in self.children])
+        stack: list[tuple[DT, Iterator[DT], list[DT]]] = [
+            (self, iter(self.children or ()), [])
+        ]
+        while True:
+            node, cursor, children = stack[-1]
+            try:
+                child = next(cursor)
+            except StopIteration:
+                copied = DT(node.symbol, None if node.children is None else children)
+                stack.pop()
+                if not stack:
+                    return copied
+                stack[-1][2].append(copied)
+            else:
+                stack.append((child, iter(child.children or ()), []))
 
     def breadth_first_iterator(self) -> Iterator[DT]:
         """Get a breadth-first iterator.
@@ -164,8 +215,6 @@ class DT:
         Returns:
             str: The string depicted by the tree.
         """
-        # Iterative to_string method to prevent stack exhaustion for large trees
-        # Note: This is also faster than the recursive __str__ method :)
         expanded: list[str] = []
         queue: deque[DT] = deque([self])
         while queue:
@@ -183,14 +232,31 @@ class DT:
         Returns:
             dict[str, Any]: The dictionary representation of the tree.
         """
-        return {
+        children: list[dict[str, Any]] = []
+        result: dict[str, Any] = {
             "symbol": self.symbol,
-            "children": (
-                [child.to_dict() for child in self.children]
-                if self.children is not None
-                else None
-            ),
+            "children": None if self.children is None else children,
         }
+        stack: list[tuple[Iterator[DT], list[dict[str, Any]]]] = [
+            (iter(self.children or ()), children)
+        ]
+        while stack:
+            cursor, destination = stack[-1]
+            try:
+                child = next(cursor)
+            except StopIteration:
+                stack.pop()
+                continue
+            child_children: list[dict[str, Any]] = []
+            destination.append(
+                {
+                    "symbol": child.symbol,
+                    "children": None if child.children is None else child_children,
+                }
+            )
+            if child.children:
+                stack.append((iter(child.children), child_children))
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DT:
@@ -202,15 +268,37 @@ class DT:
         Returns:
             DT: The derivation tree.
         """
-        symbol = data.get("symbol")
-        if not isinstance(symbol, str):
-            raise TypeError(
-                f"Derivation tree symbol must be a string, got {type(symbol).__name__}."
+
+        def frame(
+            node: dict[str, Any],
+        ) -> tuple[str, Iterator[dict[str, Any]], list[DT], bool]:
+            symbol = node.get("symbol")
+            if not isinstance(symbol, str):
+                raise TypeError(
+                    "Derivation tree symbol must be a string, "
+                    f"got {type(symbol).__name__}."
+                )
+            children = node["children"]
+            return (
+                symbol,
+                iter(()) if children is None else iter(children),
+                [],
+                children is None,
             )
-        children = None
-        if data["children"] is not None:
-            children = [cls.from_dict(child) for child in data["children"]]
-        return cls(symbol, children)
+
+        stack = [frame(data)]
+        while True:
+            symbol, cursor, children, unexpanded = stack[-1]
+            try:
+                child = next(cursor)
+            except StopIteration:
+                node = cls(symbol, None if unexpanded else children)
+                stack.pop()
+                if not stack:
+                    return node
+                stack[-1][2].append(node)
+            else:
+                stack.append(frame(child))
 
 
 class DepthFirstPreOrderIterator(Iterator[DT]):
