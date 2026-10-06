@@ -150,27 +150,30 @@ class SyntaxSymphony:
                 for alternative in self._grammar[symbol]
             )
 
+        if k == 1:
+            return {
+                symbol: [[expansion.copy()] for expansion in alternatives]
+                for symbol, alternatives in self._grammar.items()
+            }
+
         paths: dict[str, list[list[list[str]]]] = {}
         for nonterminal in self._grammar:
             paths[nonterminal] = []
             for expansion in self._grammar[nonterminal]:
                 path = [expansion]
-                stack = [(k - 1, successors(expansion))]
+                stack = [successors(expansion)]
                 while stack:
-                    depth, cursor = stack[-1]
-                    if depth == 0:
-                        paths[nonterminal].append([exp.copy() for exp in path])
-                        stack.pop()
-                        path.pop()
-                        continue
-                    try:
-                        child_expansion = next(cursor)
-                    except StopIteration:
+                    child_expansion = next(stack[-1], None)
+                    if child_expansion is None:
                         stack.pop()
                         path.pop()
                         continue
                     path.append(child_expansion)
-                    stack.append((depth - 1, successors(child_expansion)))
+                    if len(path) == k:
+                        paths[nonterminal].append([exp.copy() for exp in path])
+                        path.pop()
+                    else:
+                        stack.append(successors(child_expansion))
 
         return paths
 
@@ -222,12 +225,16 @@ class SyntaxSymphony:
             expansion = path[depth]
             if expansion not in self._grammar[tree.symbol]:
                 continue
-            tree.children = [self._symbol_to_tree(symbol) for symbol in expansion]
-            stack.extend(
-                (child, depth + 1)
-                for child in reversed(tree.children)
-                if _is_nonterminal(child.symbol)
-            )
+            children = []
+            next_depth = depth + 1
+            for symbol in reversed(expansion):
+                nonterminal = _is_nonterminal(symbol)
+                child = DT(symbol, None if nonterminal else [])
+                children.append(child)
+                if nonterminal and next_depth < len(path):
+                    stack.append((child, next_depth))
+            children.reverse()
+            tree.children = children
         return root
 
     def remaining_k_paths(self) -> int:
@@ -261,7 +268,8 @@ class SyntaxSymphony:
                 k_tree = self._k_path_to_tree(item, path)
                 for i in k_tree:
                     if i.children is None:
-                        queue.append((depth + i.height(), i))
+                        # Unexpanded nodes always have height one.
+                        queue.append((depth + 1, i))
                 item.children = k_tree.children
             else:
                 grammar = self._pick_grammar(depth)

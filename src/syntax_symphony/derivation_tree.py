@@ -47,9 +47,8 @@ class DT:
         stack: list[tuple[Iterator[DT], bool]] = [(iter((self,)), True)]
         while stack:
             cursor, first = stack[-1]
-            try:
-                node = next(cursor)
-            except StopIteration:
+            node = next(cursor, None)
+            if node is None:
                 stack.pop()
                 if stack:
                     parts.append("])")
@@ -60,6 +59,8 @@ class DT:
             parts.append(f"DT({node.symbol!r}, ")
             if node.children is None:
                 parts.append("None)")
+            elif not node.children:
+                parts.append("[])")
             else:
                 parts.append("[")
                 stack.append((iter(node.children), True))
@@ -75,11 +76,11 @@ class DT:
             return False
         stack: list[Iterator[tuple[DT, DT]]] = [iter(((self, other),))]
         while stack:
-            try:
-                left, right = next(stack[-1])
-            except StopIteration:
+            pair = next(stack[-1], None)
+            if pair is None:
                 stack.pop()
                 continue
+            left, right = pair
             if left is right:
                 continue
             if left.symbol != right.symbol:
@@ -90,7 +91,8 @@ class DT:
                 continue
             if len(left.children) != len(right.children):
                 return False
-            stack.append(iter(zip(left.children, right.children, strict=True)))
+            if left.children:
+                stack.append(iter(zip(left.children, right.children, strict=True)))
         return True
 
     @property
@@ -111,7 +113,12 @@ class DT:
         Returns:
             bool: True if the tree is valid, False otherwise.
         """
-        for node, _ in self._preorder_with_depth():
+        stack = [iter((self,))]
+        while stack:
+            node = next(stack[-1], None)
+            if node is None:
+                stack.pop()
+                continue
             if node.children == []:
                 if node.symbol in grammar:
                     _logger.warning("Nonterminal %s has no children!", node.symbol)
@@ -126,9 +133,13 @@ class DT:
                 continue
 
             children = "".join(child.symbol for child in node.children)
-            if not any(children == "".join(exp) for exp in grammar[node.symbol]):
+            for exp in grammar[node.symbol]:
+                if children == "".join(exp):
+                    break
+            else:
                 _logger.warning("Invalid expansion: %s for %s", children, node.symbol)
                 return False
+            stack.append(iter(node.children))
         return True
 
     def add_child(self, child: DT) -> None:
@@ -147,21 +158,21 @@ class DT:
         Returns:
             int: The height of the tree.
         """
-        return max(depth for _, depth in self._preorder_with_depth())
-
-    def _preorder_with_depth(self) -> Iterator[tuple[DT, int]]:
-        """Walk left to right with root depth one and one cursor per ancestor."""
-        stack: list[tuple[Iterator[DT], int]] = [(iter((self,)), 1)]
+        if not self.children:
+            return 1
+        height = 1
+        stack = [iter(self.children)]
         while stack:
-            cursor, depth = stack[-1]
-            try:
-                node = next(cursor)
-            except StopIteration:
+            node = next(stack[-1], None)
+            if node is None:
                 stack.pop()
                 continue
-            yield node, depth
+            depth = len(stack) + 1
+            if depth > height:
+                height = depth
             if node.children:
-                stack.append((iter(node.children), depth + 1))
+                stack.append(iter(node.children))
+        return height
 
     def clone(self) -> DT:
         """Clone the tree.
@@ -169,21 +180,26 @@ class DT:
         Returns:
             DT : The cloned tree.
         """
+        if not self.children:
+            return DT(self.symbol, None if self.children is None else [])
         stack: list[tuple[DT, Iterator[DT], list[DT]]] = [
-            (self, iter(self.children or ()), [])
+            (self, iter(self.children), [])
         ]
         while True:
             node, cursor, children = stack[-1]
-            try:
-                child = next(cursor)
-            except StopIteration:
-                copied = DT(node.symbol, None if node.children is None else children)
+            child = next(cursor, None)
+            if child is None:
+                copied = DT(node.symbol, children)
                 stack.pop()
                 if not stack:
                     return copied
                 stack[-1][2].append(copied)
+            elif not child.children:
+                children.append(
+                    DT(child.symbol, None if child.children is None else [])
+                )
             else:
-                stack.append((child, iter(child.children or ()), []))
+                stack.append((child, iter(child.children), []))
 
     def breadth_first_iterator(self) -> Iterator[DT]:
         """Get a breadth-first iterator.
@@ -242,9 +258,8 @@ class DT:
         ]
         while stack:
             cursor, destination = stack[-1]
-            try:
-                child = next(cursor)
-            except StopIteration:
+            child = next(cursor, None)
+            if child is None:
                 stack.pop()
                 continue
             child_children: list[dict[str, Any]] = []
@@ -305,21 +320,18 @@ class DepthFirstPreOrderIterator(Iterator[DT]):
     """A depth-first pre-order iterator for derivation trees."""
 
     def __init__(self, root_node: DT):
-        self._stack: list[tuple[DT, bool]] = [(root_node, False)]
+        self._stack = [root_node]
 
     def __iter__(self) -> Iterator[DT]:
         return self
 
     def __next__(self) -> DT:
-        while self._stack:
-            node, visited = self._stack.pop()
-            if not visited:
-                self._stack.append((node, True))
-                if node.children:
-                    for child in reversed(node.children):
-                        self._stack.append((child, False))
-                return node
-        raise StopIteration
+        if not self._stack:
+            raise StopIteration
+        node = self._stack.pop()
+        if node.children:
+            self._stack.extend(reversed(node.children))
+        return node
 
 
 class DepthFirstPostOrderIterator(Iterator[DT]):
