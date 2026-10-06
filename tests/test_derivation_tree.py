@@ -54,6 +54,7 @@ def test_dt_eq(branching_tree: DT):
         ),
         (DT("<start>", None), True),
         (DT("x", []), True),
+        (DT("<A>", [DT("", []), DT("x", [])]), True),
         (DT("<A>", []), False),
         (DT("unknown", [DT("x", [])]), False),
         (DT("<start>", [DT("wrong", [])]), False),
@@ -66,6 +67,7 @@ def test_dt_eq(branching_tree: DT):
         "complete",
         "partial",
         "terminal",
+        "split-terminal-text",
         "empty-nonterminal",
         "unknown-parent",
         "wrong-expansion",
@@ -92,8 +94,12 @@ def test_dt_height(branching_tree: DT):
 
 @pytest.mark.parametrize(
     "tree",
-    [DT("S", None), DT("S", [DT("A", [DT("C", [])]), DT("B", None)])],
-    ids=["unexpanded", "nested"],
+    [
+        DT("S", None),
+        DT("S", [DT("A", [DT("C", [])]), DT("B", None)]),
+        DT("S", [DT("A", [DT("x", [])])] * 2),
+    ],
+    ids=["unexpanded", "nested", "shared-subtree"],
 )
 def test_dt_clone_is_independent(tree):
     original_data = tree.to_dict()
@@ -101,6 +107,7 @@ def test_dt_clone_is_independent(tree):
     assert clone == tree
     original_nodes = list(tree)
     cloned_nodes = list(clone)
+    assert len({id(node) for node in cloned_nodes}) == len(cloned_nodes)
     assert all(
         original is not copied
         for original, copied in zip(original_nodes, cloned_nodes, strict=True)
@@ -156,3 +163,23 @@ def test_dt_serialization(tree, data):
 def test_dt_from_dict_rejects_non_string_symbol():
     with pytest.raises(TypeError, match="must be a string"):
         DT.from_dict({"symbol": 123, "children": None})
+
+
+def test_dt_repr_preserves_escaping_and_child_states():
+    tree = DT("\n\\", [DT("λ", []), DT("", []), DT("<A>", None)])
+    assert repr(tree) == "DT('\\n\\\\', [DT('λ', []), DT('', []), DT('<A>', None)])"
+
+
+def test_dt_from_dict_constructs_subclass_children_before_parents():
+    construction_order = []
+
+    class RecordingTree(DT):
+        def __init__(self, symbol, children):
+            construction_order.append(symbol)
+            super().__init__(symbol, children)
+
+    data = DT("root", [DT("A", [DT("x", [])]), DT("B", None)]).to_dict()
+    tree = RecordingTree.from_dict(data)
+    assert construction_order == ["x", "A", "B", "root"]
+    assert all(type(node) is RecordingTree for node in tree)
+    assert all(type(node) is DT for node in tree.clone())

@@ -1,4 +1,5 @@
 import re
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -59,6 +60,39 @@ def test_compute_k_paths_accumulates_through_kcov(tiny_grammar: Grammar) -> None
 def test_compute_k_paths_invalid_k(tiny_grammar: Grammar) -> None:
     with pytest.raises(ValueError, match="max_k must be at least 1"):
         SyntaxSymphony(tiny_grammar, kcov=0)
+
+
+def test_k_paths_keep_duplicate_occurrences_in_order():
+    grammar = Grammar({"<start>": ["<A><B><A>"], "<A>": ["x", "y"], "<B>": ["z"]})
+    fuzzer = SyntaxSymphony(grammar)
+    paths = fuzzer._k_paths_of_length(2)["<start>"]
+    assert [path[-1] for path in paths] == [["x"], ["y"], ["z"], ["x"], ["y"]]
+    paths[0][-1][0] = "changed"
+    assert paths[3][-1] == ["x"]
+
+
+def test_k_path_helpers_exceed_recursion_limit():
+    limit = sys.getrecursionlimit()
+    k = limit + 100
+    grammar = Grammar({"<start>": ["<A>"], "<A>": ["<A>", "x"]})
+    fuzzer = SyntaxSymphony(grammar)
+    paths = fuzzer._k_paths_of_length(k)
+    assert paths["<start>"] == [
+        [["<A>"]] * k,
+        [["<A>"]] * (k - 1) + [["x"]],
+    ]
+    assert paths["<A>"] == paths["<start>"]
+    item = DT("<start>", None)
+    tree = fuzzer._k_path_to_tree(item, paths["<start>"][1])
+    count = 0
+    while tree.children:
+        assert len(tree.children) == 1
+        tree = tree.children[0]
+        count += 1
+    assert count == k
+    assert tree.symbol == "x"
+    assert tree.children == []
+    assert sys.getrecursionlimit() == limit
 
 
 def test_terminal_only_k_paths(terminal_only_grammar: Grammar) -> None:
@@ -234,17 +268,23 @@ def test_recursive_generation_returns_complete_valid_trees(expr_grammar: Grammar
         assert not re.search(r"<[^>]+>", text)
 
 
-def test_k_path_to_tree_leaves_unmatched_siblings_for_completion():
-    grammar = Grammar({"<start>": ["<A><B>"], "<A>": ["x"], "<B>": ["y"]})
+def test_k_path_to_tree_expands_matching_siblings_and_leaves_unmatched_for_completion():
+    grammar = Grammar({"<start>": ["<A><B><A>"], "<A>": ["x"], "<B>": ["y"]})
     fuzzer = SyntaxSymphony(grammar, kcov=2, seed=42)
 
-    tree = fuzzer._k_path_to_tree(DT("<start>", None), [["<A>", "<B>"], ["x"]])
-    assert tree == DT("<start>", [DT("<A>", [DT("x", [])]), DT("<B>", None)])
+    item = DT("<start>", None)
+    tree = fuzzer._k_path_to_tree(item, [["<A>", "<B>", "<A>"], ["x"]])
+    assert tree == DT(
+        "<start>",
+        [DT("<A>", [DT("x", [])]), DT("<B>", None), DT("<A>", [DT("x", [])])],
+    )
+    assert tree.children[0] is not tree.children[2]
+    assert item.children is None
     # Each root path must finish the sibling that is not part of that path.
     for _ in range(3):
         completed = fuzzer.fuzz_tree()
         assert completed.is_valid(grammar)
-        assert completed.to_str() == "xy"
+        assert completed.to_str() == "xyx"
 
 
 def test_k_path_to_tree_rejects_expanded_node(terminal_only_grammar: Grammar):

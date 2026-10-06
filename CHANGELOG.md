@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-06
+
+### Fixed
+
+- Replace recursive derivation-tree inspection, validation, cloning, dictionary conversion, comparison, and representation with iterative traversal, preserving finite-tree results and the existing nested dictionary format.
+- Replace nested default iteration and recursive k-path helpers with explicit traversal stacks, preserving seeded outputs and coverage accounting.
+
 ## [0.5.0] - 2026-10-04
 
 ### Added
